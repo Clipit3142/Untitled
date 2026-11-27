@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// E6 and G1 (dates), G2 and confidence (3.9), D4 (eligibility), K1 and K3 (rules),

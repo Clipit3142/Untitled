@@ -56,14 +56,15 @@ let package = Package(
             path: "Tools/JournalHarness",
             swiftSettings: swiftSettings
         ),
-        .testTarget(name: "NomenCoreTests", dependencies: ["NomenCore"], swiftSettings: swiftSettings),
-        .testTarget(name: "NomenFSTests", dependencies: ["NomenFS", "NomenCore", "NomenStore"], swiftSettings: swiftSettings),
-        .testTarget(name: "NomenStoreTests", dependencies: ["NomenStore", "NomenCore", "NomenFS"], swiftSettings: swiftSettings),
-        .testTarget(name: "NomenModelTests", dependencies: ["NomenModel", "NomenCore"], swiftSettings: swiftSettings),
+        .target(name: "NomenTestSupport", path: "Tests/NomenTestSupport", swiftSettings: swiftSettings),
+        .testTarget(name: "NomenCoreTests", dependencies: ["NomenCore", "NomenTestSupport"], swiftSettings: swiftSettings),
+        .testTarget(name: "NomenFSTests", dependencies: ["NomenFS", "NomenCore", "NomenStore", "NomenTestSupport", "nomen-journal-harness"], swiftSettings: swiftSettings),
+        .testTarget(name: "NomenStoreTests", dependencies: ["NomenStore", "NomenCore", "NomenFS", "NomenTestSupport"], swiftSettings: swiftSettings),
+        .testTarget(name: "NomenModelTests", dependencies: ["NomenModel", "NomenCore", "NomenTestSupport"], swiftSettings: swiftSettings),
         .testTarget(name: "NomenExtractTests", dependencies: ["NomenExtract", "NomenCore"], resources: [.copy("Fixtures")], swiftSettings: swiftSettings),
         .testTarget(
             name: "NomenEngineTests",
-            dependencies: ["NomenEngine", "NomenCore", "NomenFS", "NomenStore", "NomenModel", "NomenExtract"],
+            dependencies: ["NomenEngine", "NomenCore", "NomenFS", "NomenStore", "NomenModel", "NomenExtract", "NomenTestSupport"],
             swiftSettings: swiftSettings
         ),
     ]

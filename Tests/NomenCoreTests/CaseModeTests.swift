@@ -1,4 +1,5 @@
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// H2: each case mode matches ≥ 100 expected input/output pairs, covering protected words,

@@ -1,4 +1,5 @@
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// H6: the four presets produce exactly the reference outputs in 3.10.

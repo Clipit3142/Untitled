@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// G6 and G7: the sanitizer always produces a valid filename.

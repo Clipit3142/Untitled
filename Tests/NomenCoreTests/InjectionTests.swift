@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// G5: across 200 injection fixtures, every result is a single valid filename in an allowed

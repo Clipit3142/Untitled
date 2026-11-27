@@ -17,6 +17,7 @@
 #include <sys/xattr.h>
 #include <sys/vfs.h>
 #include <sys/syscall.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 #endif
 
@@ -113,6 +114,49 @@ int nomen_volume_info(const char *path, char *type_name, size_t type_size, int *
     *is_local = local;
 #endif
     return 0;
+}
+
+int nomen_birth_time(const char *path, long long *seconds, long *nanoseconds) {
+    *seconds = 0;
+    *nanoseconds = 0;
+#if defined(__APPLE__)
+    struct stat info;
+    if (lstat(path, &info) != 0) return -1;
+    *seconds = (long long)info.st_birthtimespec.tv_sec;
+    *nanoseconds = (long)info.st_birthtimespec.tv_nsec;
+    return 0;
+#else
+    struct statx info;
+    if (statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW, STATX_BTIME, &info) != 0) return -1;
+    if (!(info.stx_mask & STATX_BTIME)) return -1;
+    *seconds = (long long)info.stx_btime.tv_sec;
+    *nanoseconds = (long)info.stx_btime.tv_nsec;
+    return 0;
+#endif
+}
+
+int nomen_fd_identity(int fd, unsigned long long *device, unsigned long long *inode, long long *birth_seconds, long *birth_nanoseconds) {
+    *birth_seconds = 0;
+    *birth_nanoseconds = 0;
+#if defined(__APPLE__)
+    struct stat info;
+    if (fstat(fd, &info) != 0) return -1;
+    *device = (unsigned long long)info.st_dev;
+    *inode = (unsigned long long)info.st_ino;
+    *birth_seconds = (long long)info.st_birthtimespec.tv_sec;
+    *birth_nanoseconds = (long)info.st_birthtimespec.tv_nsec;
+    return 0;
+#else
+    struct statx info;
+    if (statx(fd, "", AT_EMPTY_PATH, STATX_INO | STATX_BTIME, &info) != 0) return -1;
+    *device = (unsigned long long)makedev(info.stx_dev_major, info.stx_dev_minor);
+    *inode = (unsigned long long)info.stx_ino;
+    if (info.stx_mask & STATX_BTIME) {
+        *birth_seconds = (long long)info.stx_btime.tv_sec;
+        *birth_nanoseconds = (long)info.stx_btime.tv_nsec;
+    }
+    return 0;
+#endif
 }
 
 int nomen_file_flags(const char *path, unsigned int *flags) {

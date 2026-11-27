@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// I1–I4 (learning from edits), H10 (example-name inference) and B5 (learn from folder).

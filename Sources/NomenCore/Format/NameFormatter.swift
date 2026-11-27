@@ -32,6 +32,12 @@ public struct RenderedPart: Sendable, Hashable, Codable {
     public var token: TokenKind
     public var text: String
     public var required: Bool
+
+    public init(token: TokenKind, text: String, required: Bool) {
+        self.token = token
+        self.text = text
+        self.required = required
+    }
 }
 
 /// The result of formatting.

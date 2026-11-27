@@ -1,13 +1,13 @@
 /// A deterministic random generator (SplitMix64), so property tests are reproducible and
 /// a failure can be replayed from its seed.
-struct SeededGenerator: RandomNumberGenerator, Sendable {
+public struct SeededGenerator: RandomNumberGenerator, Sendable {
     private var state: UInt64
 
-    init(seed: UInt64) {
+    public init(seed: UInt64) {
         state = seed
     }
 
-    mutating func next() -> UInt64 {
+    public mutating func next() -> UInt64 {
         state &+= 0x9E37_79B9_7F4A_7C15
         var z = state
         z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
@@ -18,7 +18,7 @@ struct SeededGenerator: RandomNumberGenerator, Sendable {
 
 extension SeededGenerator {
     /// A random Unicode scalar, biased towards the troublesome ones.
-    mutating func troublesomeScalar() -> Unicode.Scalar {
+    public mutating func troublesomeScalar() -> Unicode.Scalar {
         let pools: [ClosedRange<UInt32>] = [
             0x00...0x1F, 0x20...0x7E, 0x7F...0x9F, 0xA0...0x2FF, 0x300...0x36F, 0x370...0x52F,
             0x590...0x6FF, 0x900...0x97F, 0xE00...0xE7F, 0x1100...0x11FF, 0x180E...0x180E,
@@ -44,14 +44,14 @@ extension SeededGenerator {
         }
     }
 
-    mutating func troublesomeString(maxLength: Int) -> String {
+    public mutating func troublesomeString(maxLength: Int) -> String {
         let length = Int.random(in: 0...maxLength, using: &self)
         var scalars = String.UnicodeScalarView()
         for _ in 0..<length { scalars.append(troublesomeScalar()) }
         return String(scalars)
     }
 
-    mutating func word() -> String {
+    public mutating func word() -> String {
         let words = ["invoice", "Swisscom", "mobile", "subscription", "November", "réservation", "Straße",
                      "iPhone", "eBay", "PDF", "Q3", "2026", "covid-19", "l'offre", "don't", "東京", "請求書",
                      "청구서", "отчёт", "📄", "🎉", "R&D", "v1.2", "the", "of", "and", "ACME", "x", "A",
@@ -59,7 +59,7 @@ extension SeededGenerator {
         return words.randomElement(using: &self)!
     }
 
-    mutating func phrase(maxWords: Int) -> String {
+    public mutating func phrase(maxWords: Int) -> String {
         let count = Int.random(in: 0...maxWords, using: &self)
         return (0..<count).map { _ in word() }.joined(separator: " ")
     }

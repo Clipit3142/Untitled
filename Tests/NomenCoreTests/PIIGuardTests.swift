@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// G3: across 1,000 adversarial PII fixtures, no card numbers, IBANs, emails, phone numbers

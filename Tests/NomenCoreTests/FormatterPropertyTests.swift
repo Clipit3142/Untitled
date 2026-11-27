@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// H1, H3, H4, G4, J4 and determinism of the formatter.

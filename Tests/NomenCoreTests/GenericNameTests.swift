@@ -1,4 +1,5 @@
 import Testing
+import NomenTestSupport
 @testable import NomenCore
 
 /// D5: the generic-name detector is 100% correct on ≥ 400 names, including every macOS
