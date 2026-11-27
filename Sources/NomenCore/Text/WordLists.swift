@@ -14,6 +14,13 @@ public enum WordLists {
 
     /// Words kept lowercase in the middle of a Title Case phrase (3.10).
     public static func titleSmallWords(_ language: NameLanguage) -> Set<String> {
+        smallWordsByLanguage[language] ?? []
+    }
+
+    private static let smallWordsByLanguage: [NameLanguage: Set<String>] =
+        Dictionary(uniqueKeysWithValues: NameLanguage.allCases.map { ($0, makeTitleSmallWords($0)) })
+
+    private static func makeTitleSmallWords(_ language: NameLanguage) -> Set<String> {
         switch language {
         case .english:
             ["a", "an", "the", "and", "but", "or", "nor", "for", "so", "yet", "as", "at", "by",
@@ -43,6 +50,13 @@ public enum WordLists {
 
     /// Filler words removed when "Remove filler words" is on (3.10).
     public static func fillerWords(_ language: NameLanguage) -> Set<String> {
+        fillerWordsByLanguage[language] ?? []
+    }
+
+    private static let fillerWordsByLanguage: [NameLanguage: Set<String>] =
+        Dictionary(uniqueKeysWithValues: NameLanguage.allCases.map { ($0, makeFillerWords($0)) })
+
+    private static func makeFillerWords(_ language: NameLanguage) -> Set<String> {
         switch language {
         case .english:
             ["a", "an", "the", "and", "of", "for", "to", "in", "on", "at", "with", "from", "by",
@@ -92,13 +106,26 @@ public struct VocabularyRule: Codable, Sendable, Hashable {
 public enum Vocabulary {
     /// Applies rules in one pass. Each word is replaced at most once, so rule chains never
     /// loop at runtime; loops are also refused when a style is saved (H7).
+    private struct Compiled: Sendable {
+        var from: [String]
+        var to: [String]
+    }
+
+    private static let compiledCache = Memo<[VocabularyRule], [Compiled]>()
+
+    private static func compile(_ rules: [VocabularyRule]) -> [Compiled] {
+        compiledCache.value(for: rules) {
+            rules.compactMap { rule -> Compiled? in
+                let from = WordTokenizer.words(rule.from).map(TextFolding.caseKey)
+                guard !from.isEmpty else { return nil }
+                return Compiled(from: from, to: WordTokenizer.words(rule.to))
+            }.sorted { $0.from.count > $1.from.count } // longest phrase first
+        }
+    }
+
     public static func apply(_ rules: [VocabularyRule], to words: [String]) -> [String] {
         guard !rules.isEmpty, !words.isEmpty else { return words }
-        let compiled = rules.compactMap { rule -> ([String], [String])? in
-            let from = WordTokenizer.words(rule.from).map(TextFolding.caseKey)
-            guard !from.isEmpty else { return nil }
-            return (from, WordTokenizer.words(rule.to))
-        }.sorted { $0.0.count > $1.0.count } // longest phrase first
+        let compiled = compile(rules).map { ($0.from, $0.to) }
         let keys = words.map(TextFolding.caseKey)
         var result: [String] = []
         var index = 0

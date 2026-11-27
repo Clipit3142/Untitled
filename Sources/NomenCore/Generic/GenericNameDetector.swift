@@ -16,7 +16,7 @@ public struct GenericNameDetector: Sendable {
     }
 
     public func isGeneric(_ fileName: String) -> Bool {
-        let base = FileExtension.split(fileName).base.precomposedStringWithCompatibilityMapping
+        let base = FileExtension.split(fileName).base.nfkc
         if userPatterns.contains(where: { Glob.matches($0, base) }) { return true }
         let lowered = base.lowercased()
         if GenericPatterns.matchesStructural(lowered) { return true }
@@ -47,7 +47,7 @@ public struct GenericNameDetector: Sendable {
         var runs: [String] = []
         var current = ""
         for character in text {
-            if let scalar = character.unicodeScalars.first, scalar.properties.isAlphabetic, !character.isNumber {
+            if let scalar = character.unicodeScalars.first, scalar.properties.isAlphabetic, !character.isDecimalDigit {
                 current.append(character)
             } else if !current.isEmpty {
                 runs.append(current)
@@ -87,13 +87,13 @@ enum GenericPatterns {
         // Android: Screenshot_20261127-140512_Chrome, Screenshot_2026-11-27-14-05-12-123_com.app
         if lowered.hasPrefix("screenshot_") || lowered.hasPrefix("screen_recording_") || lowered.hasPrefix("screenrecorder") {
             let rest = lowered.drop(while: { $0 != "_" }).dropFirst()
-            if let first = rest.first, first.isNumber { return true }
+            if let first = rest.first, first.isDecimalDigit { return true }
         }
         // Camera counters followed by an edit marker: IMG_1234-edited, DSC_0001_copy
         let parts = lowered.split(whereSeparator: { $0 == "_" || $0 == "-" || $0 == " " })
         if parts.count >= 2, let head = parts.first, GenericWords.cameraPrefixes.contains(String(head)),
-           parts[1].allSatisfy(\.isNumber),
-           parts.dropFirst(2).allSatisfy({ GenericWords.all.contains(TextFolding.key(String($0))) || $0.allSatisfy(\.isNumber) }) {
+           parts[1].allSatisfy(\.isDecimalDigit),
+           parts.dropFirst(2).allSatisfy({ GenericWords.all.contains(TextFolding.key(String($0))) || $0.allSatisfy(\.isDecimalDigit) }) {
             return true
         }
         return false
@@ -131,7 +131,7 @@ enum GenericPatterns {
         if groups.map(\.count) == [8, 4, 4, 4, 12], groups.allSatisfy({ $0.allSatisfy(\.isHexDigit) }) { return true }
         // A hex run of 12+ characters with at least one digit and one letter.
         for group in groups where group.count >= 12 && group.allSatisfy(\.isHexDigit) {
-            if group.contains(where: \.isNumber), group.contains(where: \.isLetter) { return true }
+            if group.contains(where: \.isDecimalDigit), group.contains(where: \.isLetter) { return true }
         }
         return false
     }

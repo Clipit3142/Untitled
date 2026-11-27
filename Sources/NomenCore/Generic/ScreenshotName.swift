@@ -10,7 +10,7 @@ public enum ScreenshotName {
     /// Returns a match when the name looks like a system screenshot or screen-recording name.
     /// The capture time is read from the name when it carries one.
     public static func parse(_ fileName: String) -> Match? {
-        let base = FileExtension.split(fileName).base.precomposedStringWithCompatibilityMapping
+        let base = FileExtension.split(fileName).base.nfkc
         let lowered = base.lowercased()
         let runs = GenericNameDetector.letterRuns(lowered).map(TextFolding.key)
         let hasScreenshotWord = runs.contains { GenericWords.screenshot.contains($0) }

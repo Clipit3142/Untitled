@@ -228,7 +228,7 @@ private struct Builder {
         var cased = caser.apply(words).map { characterOptions($0) }.filter { !$0.isEmpty }
         cased = cased.filter { !banned.containsBannedWord($0) }
         if generated, PIIGuard.containsPII(cased.joined(separator: wordSeparator)) {
-            cased = cased.filter { word in !word.contains(where: \.isNumber) }
+            cased = cased.filter { word in !word.contains(where: \.isDecimalDigit) }
         }
         return Piece(kind: kind, required: required, words: cased, isGenerated: generated)
     }
@@ -252,7 +252,7 @@ private struct Builder {
     }
 
     func capitalizeFirst(_ word: String) -> String {
-        guard let first = word.first, !first.isNumber else { return word }
+        guard let first = word.first, !first.isDecimalDigit else { return word }
         return String(first).uppercased() + word.dropFirst()
     }
 
@@ -291,7 +291,7 @@ private struct Builder {
         return pieces.map { piece in
             guard piece.isGenerated else { return piece }
             var copy = piece
-            copy.words = piece.words.filter { word in !word.allSatisfy { $0.isNumber || !$0.isLetter } }
+            copy.words = piece.words.filter { word in !word.allSatisfy { $0.isDecimalDigit || !$0.isLetter } }
             return copy
         }
     }

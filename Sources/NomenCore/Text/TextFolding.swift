@@ -5,12 +5,12 @@ public enum TextFolding {
     /// A key for "same word" comparisons: compatibility-normalized, lowercased, without accents.
     /// Used for source evidence (3.9), never-include and protected words.
     public static func key(_ text: String) -> String {
-        removeAccents(text.precomposedStringWithCompatibilityMapping).lowercased()
+        removeAccents(text.nfkc).lowercased()
     }
 
     /// A key that ignores case but keeps accents (vocabulary matching is "any case", 3.10).
     public static func caseKey(_ text: String) -> String {
-        text.precomposedStringWithCompatibilityMapping.lowercased()
+        text.nfkc.lowercased()
     }
 
     /// Removes accents from Latin, Greek and Cyrillic letters and spells out letters that
@@ -18,6 +18,7 @@ public enum TextFolding {
     /// (Devanagari vowel signs, Japanese voicing marks, Thai) are kept, because removing
     /// them would change the word.
     public static func removeAccents(_ text: String) -> String {
+        if text.isASCIIOnly { return text }
         var spelled = String.UnicodeScalarView()
         for scalar in text.unicodeScalars {
             if let replacement = specialLetters[scalar] {
@@ -26,7 +27,7 @@ public enum TextFolding {
                 spelled.append(scalar)
             }
         }
-        let decomposed = String(spelled).decomposedStringWithCanonicalMapping
+        let decomposed = String(spelled).nfd
         var result = String.UnicodeScalarView()
         var lastBaseStrippable = false
         for scalar in decomposed.unicodeScalars {
@@ -39,7 +40,7 @@ public enum TextFolding {
                 result.append(scalar)
             }
         }
-        return String(result).precomposedStringWithCanonicalMapping
+        return String(result).nfc
     }
 
     private static func isAccentStrippableBase(_ scalar: Unicode.Scalar) -> Bool {
@@ -61,6 +62,10 @@ public enum TextFolding {
 
     /// True for letters with case or caseless letters, and digits.
     public static func isWordCharacter(_ scalar: Unicode.Scalar) -> Bool {
+        if scalar.isASCII {
+            let v = scalar.value
+            return (v >= 48 && v <= 57) || (v >= 65 && v <= 90) || (v >= 97 && v <= 122)
+        }
         let p = scalar.properties
         return p.isAlphabetic || p.numericType == .decimal
     }
@@ -70,6 +75,7 @@ extension Character {
     /// True when this grapheme displays as an emoji (3.10 "Allow emoji").
     /// Text-style symbols such as ™, © and arrows are not emoji.
     public var isEmojiGrapheme: Bool {
+        if asciiValue != nil { return false }
         let scalars = unicodeScalars
         guard let first = scalars.first else { return false }
         if scalars.contains(where: { $0.value == 0x20E3 }) { return true } // keycap

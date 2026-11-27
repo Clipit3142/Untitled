@@ -13,6 +13,7 @@ public enum StyleIssue: Sendable, Hashable, CustomStringConvertible {
     case vocabularyLoop(from: String, to: String)
     case emptyProtectedWord
     case neverIncludeRemovesMonthName(String)
+    case asciiOnlyWithEnDash
     case emptyName
 
     public var description: String {
@@ -43,6 +44,8 @@ public enum StyleIssue: Sendable, Hashable, CustomStringConvertible {
             "Protected words can't be empty."
         case .neverIncludeRemovesMonthName(let word):
             "\"\(word)\" is a month name used in dates, so it can't be in Never include with this date format."
+        case .asciiOnlyWithEnDash:
+            "ASCII only can't be combined with the en dash separator, which isn't ASCII."
         case .emptyName:
             "The style needs a name."
         }
@@ -74,6 +77,7 @@ public enum StyleValidator {
             issues.append(.noSeparatorRequiresCamelOrPascal)
         }
         if style.timeFormat != .off, !style.dateFormat.hasDay { issues.append(.timeNeedsDay) }
+        if style.characters.asciiOnly, style.partSeparator == .spacedEnDash { issues.append(.asciiOnlyWithEnDash) }
         if Set(style.dateOrder) != Set(DateSource.allCases) || style.dateOrder.count != DateSource.allCases.count {
             issues.append(.dateOrderInvalid)
         }

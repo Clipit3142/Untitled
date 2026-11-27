@@ -44,9 +44,10 @@ public enum Sanitizer {
     public static func stripForbidden(_ text: String, allowEmoji: Bool) -> String {
         // Removing a character can merge its neighbours into one grapheme (a stray skin-tone
         // modifier joins the letter before it), so repeat until nothing changes.
-        var current = text.precomposedStringWithCanonicalMapping
+        if text.isASCIIOnly { return stripOnce(text, allowEmoji: allowEmoji) }
+        var current = text.nfc
         for _ in 0..<4 {
-            let next = stripOnce(current, allowEmoji: allowEmoji).precomposedStringWithCanonicalMapping
+            let next = stripOnce(current, allowEmoji: allowEmoji).nfc
             if next == current { return next }
             current = next
         }
@@ -70,6 +71,14 @@ public enum Sanitizer {
     }
 
     private static func mapScalar(_ scalar: Unicode.Scalar) -> Unicode.Scalar? {
+        if scalar.isASCII {
+            switch scalar.value {
+            case 0x00, 0x2F, 0x3A: return nil
+            case 0x09...0x0D: return " "
+            case 0x01...0x1F, 0x7F: return nil
+            default: return scalar
+            }
+        }
         switch scalar.value {
         case 0x00, 0x2F, 0x3A: return nil // NUL, "/", ":"
         case 0x2800, 0x115F, 0x1160, 0x3164, 0xFFA0: return nil // blank-looking letters
@@ -135,6 +144,22 @@ public enum Sanitizer {
         return String(run.first(where: { $0 != " " }) ?? " ")
     }
 
+    /// True when ASCII text needs no sanitizing: no controls, "/", ":", (Windows) reserved
+    /// characters, repeated separators, or separators at either end.
+    static func isCleanASCII(_ text: String, windowsSafe: Bool) -> Bool {
+        var previousWasSeparator = true // so a leading separator fails
+        for byte in text.utf8 {
+            if byte >= 0x80 || byte < 0x20 || byte == 0x7F || byte == 0x2F || byte == 0x3A { return false }
+            if windowsSafe, byte == 0x5C || byte == 0x2A || byte == 0x3F || byte == 0x22 || byte == 0x3C || byte == 0x3E || byte == 0x7C {
+                return false
+            }
+            let isSeparator = byte == 0x20 || byte == 0x2D || byte == 0x5F || byte == 0x2E
+            if isSeparator, previousWasSeparator { return false }
+            previousWasSeparator = isSeparator
+        }
+        return !previousWasSeparator || text.isEmpty
+    }
+
     public static func trimSeparators(_ text: String) -> String {
         var characters = Substring(text)
         while let first = characters.first, separatorCharacters.contains(first) || first.isWhitespace {
@@ -153,16 +178,19 @@ public enum Sanitizer {
     public static func sanitizeComponent(_ text: String, options: CharacterOptions) -> String {
         let withOptions = applyCharacterOptions(text, options)
         let stripped = stripForbidden(withOptions, allowEmoji: options.allowEmoji)
-        let normalized = stripped.precomposedStringWithCanonicalMapping
+        let normalized = stripped.nfc
         let collapsed = collapseAndTrim(normalized, partSeparator: " ", wordSeparator: " ")
         return options.windowsSafe ? windowsSafeBase(collapsed) : collapsed
     }
 
     /// Step 7 on an assembled base name.
     public static func sanitizeBase(_ base: String, partSeparator: String, wordSeparator: String, options: CharacterOptions) -> String {
+        if isCleanASCII(base, windowsSafe: options.windowsSafe) {
+            return options.windowsSafe ? windowsSafeBase(base) : base
+        }
         var stripped = stripForbidden(base, allowEmoji: options.allowEmoji)
         if options.windowsSafe { stripped = String(stripped.filter { !windowsForbidden.contains($0) }) }
-        let normalized = stripped.precomposedStringWithCanonicalMapping
+        let normalized = stripped.nfc
         let collapsed = collapseAndTrim(normalized, partSeparator: partSeparator, wordSeparator: wordSeparator)
         return options.windowsSafe ? windowsSafeBase(collapsed) : collapsed
     }
@@ -206,7 +234,7 @@ public enum Sanitizer {
     }
 
     static func sanitizeExtension(_ ext: String) -> String? {
-        let cleaned = stripForbidden(ext, allowEmoji: false).precomposedStringWithCanonicalMapping
+        let cleaned = stripForbidden(ext, allowEmoji: false).nfc
         let trimmed = trimSeparators(cleaned)
         return trimmed.isEmpty ? nil : trimmed
     }
@@ -218,7 +246,7 @@ public enum Sanitizer {
         var result = text
         while result.utf8.count > limit {
             result.removeLast()
-            result = trimSeparators(result).precomposedStringWithCanonicalMapping
+            result = trimSeparators(result).nfc
         }
         return result
     }
@@ -228,7 +256,7 @@ public enum Sanitizer {
     /// True if `name` is a valid filename by Nomen's rules.
     public static func isValidFileName(_ name: String, windowsSafe: Bool = false) -> Bool {
         guard !name.isEmpty, name.utf8.count <= Defaults.maxFileNameBytes else { return false }
-        guard name == name.precomposedStringWithCanonicalMapping else { return false }
+        guard name == name.nfc else { return false }
         guard !name.hasPrefix("."), name != "..", !name.hasPrefix(" ") else { return false }
         if let last = name.last, last == " " || last == "." { return false }
         for character in name {

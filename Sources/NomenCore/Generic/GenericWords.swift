@@ -63,7 +63,7 @@ enum GenericWords {
         "bild", "imagen", "immagine", "imagem", "afbeelding", "画像", "图片", "이미지", "unnamed",
         "export", "exported", "output", "untitled", "copy", "kopie", "copie", "copia", "cópia",
         "コピー", "副本", "사본", "new", "neu", "nouveau", "nouvelle", "nuevo", "nueva", "nuovo",
-        "nuova", "novo", "nova", "nieuw", "nieuwe", "fullsizerender", "photo", "photos", "foto",
+        "nuova", "novo", "nova", "nieuw", "nieuwe", "neues", "neue", "neuer", "neuen", "cloud", "size", "fullsizerender", "photo", "photos", "foto",
         "fotos", "picture", "pictures", "pic", "img", "dsc", "temp", "tmp", "index", "default",
         "book", "presentation", "doc", "item", "upload", "uploaded", "edited", "edit", "final",
     ]

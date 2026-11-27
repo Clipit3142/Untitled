@@ -22,13 +22,20 @@ public struct CaseTransformer: Sendable {
     public init(mode: CaseMode, language: NameLanguage, protectedWords: [String]) {
         self.mode = mode
         self.language = language
+        self.protected = protectedWords == WordLists.builtInProtectedWords
+            ? Self.builtInProtectedMap : Self.protectedMap(protectedWords)
+    }
+
+    private static let builtInProtectedMap = protectedMap(WordLists.builtInProtectedWords)
+
+    private static func protectedMap(_ words: [String]) -> [String: String] {
         var map: [String: String] = [:]
-        for word in protectedWords {
+        for word in words {
             let trimmed = word.trimmed
             guard !trimmed.isEmpty else { continue }
             map[TextFolding.caseKey(trimmed)] = trimmed
         }
-        self.protected = map
+        return map
     }
 
     public func apply(_ words: [String]) -> [String] {
@@ -118,7 +125,7 @@ public struct CaseTransformer: Sendable {
         }
         return parts.enumerated().map { index, part in
             if index == 0, !pascal { return part.lowercased() }
-            guard let first = part.first, !first.isNumber else { return part.lowercased() }
+            guard let first = part.first, !first.isDecimalDigit else { return part.lowercased() }
             return String(first).uppercased() + part.dropFirst().lowercased()
         }
     }
@@ -134,7 +141,7 @@ public struct CaseTransformer: Sendable {
     /// ("2nd", "3D") are unchanged. Dutch "ij" becomes "IJ".
     private func capitalize(_ word: String) -> String {
         guard let first = word.first else { return word }
-        if first.isNumber { return word }
+        if first.isDecimalDigit { return word }
         let lower = word.lowercased()
         if language == .dutch, lower.hasPrefix("ij") {
             return "IJ" + lower.dropFirst(2)
@@ -153,7 +160,7 @@ public struct CaseTransformer: Sendable {
         let letters = word.filter(\.isLetter)
         guard (2...4).contains(letters.count) else { return false }
         guard letters.allSatisfy({ $0.isUppercase }) else { return false }
-        return word.allSatisfy { $0.isLetter || $0.isNumber || $0 == "&" }
+        return word.allSatisfy { $0.isLetter || $0.isDecimalDigit || $0 == "&" }
     }
 
     static func isMixedCase(_ word: String) -> Bool {

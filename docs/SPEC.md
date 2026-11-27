@@ -273,7 +273,9 @@ All of these must hold:
   - "document", "file", "download", "untitled", "image", "unnamed", "attachment", "export"
   - browser duplicate suffixes like " (1)"
   - UUIDs, hex runs of 12+ characters, and names made only of digits, dates and separators
-- Fewer than 3 letters remain after removing digits, dates and generic words.
+- Fewer than 3 letters remain after removing digits, dates and generic words. Han, kana and Hangul characters count as two letters each. *(Part 5, #38)*
+
+A browser duplicate suffix makes a name generic only together with a generic word ("document (3)"); "Invoice (1)" keeps its name. *(Part 5, #45)*
 
 Users can add patterns or turn the check off.
 
@@ -282,7 +284,7 @@ Explicit requests (Quick Rename, bulk rename, Shortcuts) skip the arrival, date-
 Disallowed types get metadata-only proposals, always with Low confidence.
 Dataless iCloud files also get metadata-only proposals and are never downloaded.
 
-**Burst guard:** if more than 10 eligible files arrive in one folder within 30 s, none of them is renamed automatically. The burst goes to Review as one group, with one notification.
+**Burst guard:** if more than 10 eligible files arrive in one folder within 30 s, a burst begins. None of the files still waiting at that moment, and none arriving until 30 s pass without an arrival, is renamed automatically. The burst goes to Review as one group, with one notification. Files already renamed before the burst began are not affected. *(Part 5, #37)*
 
 ### 3.7 Extraction
 
@@ -401,7 +403,11 @@ Dataless iCloud files also get metadata-only proposals and are never downloaded.
 - Protected words keep their casing in Title, Sentence and As generated. In lowercase, UPPERCASE, camelCase and PascalCase, the case setting wins.
 - Title Case uses small-word lists for English, French, German, Italian, Spanish and Portuguese. Other languages capitalize every word. Scripts without case are left unchanged.
 - Vocabulary loops (A→B plus B→A) can't be saved.
-- Times use "." or no separator, because ":" isn't allowed.
+- Times use "." or no separator, because ":" isn't allowed. The time is joined to the date with the word separator, or "-" when there is none, so digits never run together. *(Part 5, #36)*
+- ASCII only can't be combined with the " – " part separator. *(Part 5, #39)*
+- Never include takes single words. A month name can't be listed while the date format uses month names. *(Part 5, #42)*
+- Kind Other adds nothing to a name. *(Part 5, #43)*
+- In "27 Nov 2026" the day has no leading zero. Japanese and Chinese render 2026年11月27日; Korean renders 2026년 11월 27일. *(Part 5, #44)*
 - A date containing spaces (27 Nov 2026) is treated as words, so the separator and case settings apply to it.
 
 **Presets.** Reference fields: 2026-11-27, Swisscom, Invoice, subject "mobile subscription November".
@@ -430,10 +436,11 @@ Dataless iCloud files also get metadata-only proposals and are never downloaded.
    3. Trim words from the longest remaining non-date token.
    4. Cut at a character boundary if a single word is still too long.
 
-   Dates are never cut. The same order then enforces ≤ 255 UTF-8 bytes for the whole filename.
+   Dates are never cut; a time is dropped before the date would have to be cut. The same order then enforces ≤ 255 UTF-8 bytes for the whole filename. *(Part 5, #40)*
 9. If the result is empty, use "File" in the name language, with the date in front if there is one.
 10. Add the extension, byte-for-byte, or lowercased if that option is on.
     - .tar.gz, .tar.bz2, .tar.xz and .tar.zst count as a single extension.
+    - An extension is 1–15 ASCII letters and digits with at least one letter, or exactly three digits (".001"). Anything else after the last dot ("Report v1.2") is part of the name. *(Part 5, #41)*
     - Files without an extension stay without one.
 
 User-typed names are never restyled. Only step 7 and the 255-byte limit apply, and any change those make is shown before saving. Edit fields show only the base name. If a typed name ends with the file's own extension, that extension is stripped.
@@ -750,7 +757,7 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 - **D3.** Every screenshot shortcut (⌘⇧3, ⌘⇧4, ⌘⇧4 + Space, ⌘⇧5), with and without the floating thumbnail, produces exactly one proposal. Screen recordings produce none.
 - **D4.** Every exclusion in 3.6 has a fixture, and 100% of them are skipped. Dataless iCloud files keep their download status unchanged.
 - **D5.** The generic-name detector is 100% correct on ≥ 400 names, including every macOS language's screenshot name.
-- **D6.** A burst of 11 or more files in 30 s causes 0 automatic renames, one Review group, and one notification.
+- **D6.** A burst of 11 or more files copied into one folder at once causes 0 automatic renames, one Review group, and one notification. *(Part 5, #37)*
 - **D7.** In 1,000 scripted races where someone else renames the file mid-process, Nomen renames it 0 times.
 - **D8.** Files with a marker in any state are never processed automatically.
 - **D9.** Renaming an existing file in place never triggers processing.
@@ -964,3 +971,13 @@ These issues came from reading Parts 1–4 against each other. Every fix is appl
 | 33 | M4 allowed 100 ms hangs while U2 says 50 ms | M4 now points to U2 |
 | 34 | The "Go Automatic?" threshold had no UI or test | Added to Folders/panel and O6 |
 | 35 | 3.20 had no home for the pipeline that connects the modules, so it could only be tested through the UI | NomenEngine module added to 3.20; it has no UI and runs in tests with fakes |
+| 36 | With camelCase or PascalCase (no word separator), a compact date and time ran together into a 12-digit number, which the PII rule forbids | The time joins the date with the word separator, or "-" when there is none |
+| 37 | "None of them is renamed automatically" could not hold for files renamed seconds before the 11th arrived without delaying every rename by 30 s, which breaks the 3.19 latency targets | The burst covers files still waiting when it begins and files arriving during it; D6 tests files copied in at once |
+| 38 | The 3-letter rule made two-character Japanese and Chinese names ("東京") generic | Han, kana and Hangul characters count as two letters |
+| 39 | ASCII only with the " – " part separator produced non-ASCII names | The combination can't be saved (H7) |
+| 40 | Max length 20 with a long date format, a time and a collision suffix could not fit without cutting the date | The time is dropped before the date would be cut |
+| 41 | "Explicit rules" for extensions did not say what counts as an extension, so "Report v1.2" would lose ".2" | An extension is 1–15 ASCII letters and digits with a letter, or three digits; multi-part tar extensions as listed |
+| 42 | Never-include phrases could span two tokens, and month names could not be removed from dates without cutting them | Entries are single words; month names are refused with the month-name date format |
+| 43 | Kind Other would have appeared as the word "Other" in names | Other adds nothing to a name; it still counts as empty for confidence |
+| 44 | The month-name format was undefined for padding and for Japanese, Chinese and Korean | Unpadded day; CJK dates in their native order |
+| 45 | "Browser duplicate suffixes" as a generic pattern would rename "Invoice (1)" and similar chosen names | The suffix counts only together with a generic word |

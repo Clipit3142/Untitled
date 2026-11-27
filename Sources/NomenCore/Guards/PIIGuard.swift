@@ -40,7 +40,11 @@ public enum PIIGuard {
     static func normalize(_ text: String) -> [Unicode.Scalar] {
         var out: [Unicode.Scalar] = []
         out.reserveCapacity(text.unicodeScalars.count)
-        for scalar in text.precomposedStringWithCompatibilityMapping.unicodeScalars {
+        for scalar in text.nfkc.unicodeScalars {
+            if scalar.isASCII {
+                out.append(scalar.value < 32 || scalar.value == 127 ? " " : scalar)
+                continue
+            }
             let p = scalar.properties
             if p.numericType == .decimal, let value = p.numericValue, value >= 0, value <= 9, !scalar.isASCII {
                 out.append(Unicode.Scalar(UInt8(48 + Int(value))))
@@ -69,7 +73,10 @@ public enum PIIGuard {
     }
 
     private static func isDigit(_ s: Unicode.Scalar) -> Bool { s.value >= 48 && s.value <= 57 }
-    private static func isLetter(_ s: Unicode.Scalar) -> Bool { s.properties.isAlphabetic }
+    private static func isLetter(_ s: Unicode.Scalar) -> Bool {
+        if s.isASCII { return (s.value >= 65 && s.value <= 90) || (s.value >= 97 && s.value <= 122) }
+        return s.properties.isAlphabetic
+    }
     private static func isSpace(_ s: Unicode.Scalar) -> Bool { s == " " }
 
     // MARK: Emails
@@ -136,8 +143,12 @@ public enum PIIGuard {
             }
         }
         guard characters.count >= 15 else { return nil }
-        for length in stride(from: characters.count, through: 15, by: -1) {
-            // An IBAN must not be followed directly by more alphanumerics.
+        let country = String(String.UnicodeScalarView(characters[0..<2])).uppercased()
+        // Registered countries have one fixed length; others are tried shortest first so
+        // trailing words can never be absorbed into a lucky checksum.
+        let lengths = IBAN.lengths[country].map { [$0] } ?? Array(15...min(34, characters.count))
+        for length in lengths where length <= characters.count {
+            // An IBAN must not be followed directly by more letters or digits.
             if length < characters.count, endIndices[length - 1] == endIndices[length] - 1 { continue }
             if IBAN.isValid(Array(characters[0..<length])) { return endIndices[length - 1] }
         }
@@ -248,6 +259,18 @@ public enum Luhn {
 
 /// IBAN mod-97 checksum (ISO 13616).
 public enum IBAN {
+    /// Registered IBAN lengths by country (ISO 13616 registry).
+    static let lengths: [String: Int] = [
+        "AD": 24, "AE": 23, "AL": 28, "AT": 20, "AZ": 28, "BA": 20, "BE": 16, "BG": 22, "BH": 22, "BR": 29,
+        "BY": 28, "CH": 21, "CR": 22, "CY": 28, "CZ": 24, "DE": 22, "DK": 18, "DO": 28, "EE": 20, "EG": 29,
+        "ES": 24, "FI": 18, "FO": 18, "FR": 27, "GB": 22, "GE": 22, "GI": 23, "GL": 18, "GR": 27, "GT": 28,
+        "HR": 21, "HU": 28, "IE": 22, "IL": 23, "IQ": 23, "IS": 26, "IT": 27, "JO": 30, "KW": 30, "KZ": 20,
+        "LB": 28, "LC": 32, "LI": 21, "LT": 20, "LU": 20, "LV": 21, "LY": 25, "MC": 27, "MD": 24, "ME": 22,
+        "MK": 19, "MR": 27, "MT": 31, "MU": 30, "NL": 18, "NO": 15, "PK": 24, "PL": 28, "PS": 29, "PT": 25,
+        "QA": 29, "RO": 24, "RS": 22, "SA": 24, "SC": 31, "SD": 18, "SE": 24, "SI": 19, "SK": 24, "SM": 27,
+        "ST": 25, "SV": 28, "TL": 23, "TN": 24, "TR": 26, "UA": 29, "VA": 22, "VG": 24, "XK": 20,
+    ]
+
     public static func isValid(_ characters: [Unicode.Scalar]) -> Bool {
         guard characters.count >= 15, characters.count <= 34 else { return false }
         let upper = characters.map { s -> Unicode.Scalar in

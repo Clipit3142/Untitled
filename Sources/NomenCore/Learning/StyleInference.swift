@@ -131,68 +131,75 @@ public enum StyleInference {
 
         // Separators inside the rest.
         let restSeparators = Set(rest.filter { Sanitizer.separatorCharacters.contains($0) })
-        var parts: [String]
-        if let explicit = [PartSeparator.spacedEnDash, .spacedHyphen].first(where: { rest.contains($0.rawValue) }) {
-            partSeparator = partSeparator ?? explicit
-            parts = rest.components(separatedBy: explicit.rawValue)
-        } else if let separator = partSeparator, [.spacedEnDash, .spacedHyphen].contains(separator) {
-            parts = rest.components(separatedBy: separator.rawValue)
-        } else {
-            parts = [rest]
-        }
-        parts = parts.map(\.trimmed).filter { !$0.isEmpty }
-
-        // Word separator.
         var wordSeparator: WordSeparator?
         if restSeparators.contains(" ") { wordSeparator = .space }
         else if restSeparators.contains("_") { wordSeparator = .underscore }
         else if restSeparators.contains("-") { wordSeparator = .hyphen }
         else if restSeparators.contains(".") { wordSeparator = .dot }
-        if partSeparator == nil, let wordSeparator, position == .none {
+
+        // Segments are runs of words; when `explicit`, each segment is one token.
+        var segments: [[String]]
+        var explicit = false
+        if let separator = [PartSeparator.spacedEnDash, .spacedHyphen].first(where: { rest.contains($0.rawValue) })
+            ?? (partSeparator.map { [.spacedEnDash, .spacedHyphen].contains($0) } == true ? partSeparator : nil) {
+            partSeparator = partSeparator ?? separator
+            segments = rest.components(separatedBy: separator.rawValue).map(\.trimmed).filter { !$0.isEmpty }
+                .map { $0.split(separator: " ").map(String.init) }
+            explicit = true
+            wordSeparator = .space
+        } else {
+            let separatorCharacter = wordSeparator.map(\.rawValue) ?? ""
+            let items = separatorCharacter.isEmpty ? [rest] : rest.components(separatedBy: separatorCharacter).filter { !$0.isEmpty }
+            if items.contains(where: hasCamelHump) {
+                // camelCase or PascalCase: the visible separator separates tokens.
+                if let ws = wordSeparator, partSeparator == nil { partSeparator = PartSeparator(rawValue: ws.rawValue) }
+                wordSeparator = WordSeparator.none
+                segments = items.map(splitCamel)
+                explicit = true
+            } else if wordSeparator == .space, let part = partSeparator, [.underscore, .hyphen, .dot].contains(part) {
+                // Words separated by spaces, tokens by another character.
+                segments = rest.components(separatedBy: part.rawValue).map { $0.split(separator: " ").map(String.init) }.filter { !$0.isEmpty }
+                explicit = segments.count > 1
+                if !explicit { segments = [segments.flatMap { $0 }] }
+            } else {
+                segments = [items.flatMap { $0.split(separator: " ").map(String.init) }]
+            }
+        }
+        if partSeparator == nil, let wordSeparator, position == .none, wordSeparator != WordSeparator.none {
             partSeparator = PartSeparator(rawValue: wordSeparator.rawValue)
         }
-
-        // Words per part.
-        let splitter: (String) -> [String] = { part in
-            guard let ws = wordSeparator, !ws.rawValue.isEmpty else { return splitCamel(part) }
-            if wordSeparator == .space, partSeparator == .underscore || partSeparator == .hyphen || partSeparator == .dot {
-                return part.split(whereSeparator: { $0 == " " || String($0) == partSeparator!.rawValue }).map(String.init)
-            }
-            return part.components(separatedBy: ws.rawValue).filter { !$0.isEmpty }
-        }
-        var partWords = parts.map(splitter).filter { !$0.isEmpty }
-        if partWords.count == 1, wordSeparator == nil {
-            partWords = [splitCamel(parts.first ?? "")]
-        }
-        let allWords = partWords.flatMap { $0 }
-        if wordSeparator == nil, allWords.count > 1 { wordSeparator = WordSeparator.none }
-
-        let caseMode = detectCase(allWords, joinedWithoutSeparator: wordSeparator == WordSeparator.none)
+        let allWords = segments.flatMap { $0 }
 
         // Tokens: find a kind label.
         var tokens: [TokenKind] = []
         var kindWords: [String] = []
-        if partWords.count > 1 {
-            // Explicit part separators: classify parts.
-            var nonKind: [(index: Int, words: [String])] = []
+        var caseSegments = segments
+        if explicit, segments.count > 1 {
             var kindIndex: Int?
-            for (index, words) in partWords.enumerated() {
-                if kindIndex == nil, isKindLabel(words) { kindIndex = index; kindWords = words } else { nonKind.append((index, words)) }
+            for (index, words) in segments.enumerated() where kindIndex == nil && isKindLabel(words) {
+                kindIndex = index
+                kindWords = words
             }
-            let subjectIndex = nonKind.max { $0.words.count == $1.words.count ? $0.index > $1.index : $0.words.count < $1.words.count }?.index
-            for index in partWords.indices {
+            let nonKind = segments.indices.filter { $0 != kindIndex }
+            let subjectIndex = nonKind.max { a, b in
+                segments[a].count == segments[b].count ? a < b : segments[a].count < segments[b].count
+            }
+            for index in segments.indices {
                 if index == kindIndex { tokens.append(.kind) }
                 else if index == subjectIndex { tokens.append(.subject) }
                 else { tokens.append(.source) }
             }
         } else if let range = kindRange(in: allWords) {
             kindWords = Array(allWords[range])
-            if range.lowerBound > 0 { tokens.append(.source) }
+            caseSegments = []
+            if range.lowerBound > 0 { tokens.append(.source); caseSegments.append(Array(allWords[..<range.lowerBound])) }
             tokens.append(.kind)
-            if range.upperBound < allWords.count { tokens.append(.subject) }
+            caseSegments.append(kindWords)
+            if range.upperBound < allWords.count { tokens.append(.subject); caseSegments.append(Array(allWords[range.upperBound...])) }
         } else if !allWords.isEmpty {
             tokens.append(.subject)
         }
+        let caseMode = detectCase(caseSegments.filter { !$0.isEmpty }, joinedWithoutSeparator: wordSeparator == WordSeparator.none)
         switch position {
         case .start: tokens.insert(.date, at: 0)
         case .end: tokens.append(.date)
@@ -360,22 +367,57 @@ public enum StyleInference {
         return words
     }
 
-    static func detectCase(_ words: [String], joinedWithoutSeparator: Bool) -> CaseMode? {
+    /// True when a lowercase letter is directly followed by an uppercase letter, as in
+    /// "mobileSubscription". A separator between the letters ("Ticket_Electricity") is not a hump.
+    static func hasCamelHump(_ word: String) -> Bool {
+        var previousWasLower = false
+        for character in word {
+            if character.isLowercase {
+                previousWasLower = true
+            } else if character.isUppercase {
+                if previousWasLower { return true }
+                previousWasLower = false
+            } else {
+                previousWasLower = false
+            }
+        }
+        return false
+    }
+
+    /// Detects the case mode from token segments. Sentence case is judged per token,
+    /// because each token is sentence-cased on its own.
+    static func detectCase(_ segments: [[String]], joinedWithoutSeparator: Bool) -> CaseMode? {
+        let words = segments.flatMap { $0 }
         let cased = words.filter { $0.contains(where: { $0.isUppercase || $0.isLowercase }) }
         guard !cased.isEmpty else { return nil }
-        if joinedWithoutSeparator, cased.count > 1 {
-            guard let first = cased.first?.first(where: \.isLetter) else { return nil }
+        if joinedWithoutSeparator {
+            guard let first = segments.first(where: { $0.count > 1 })?.first?.first(where: \.isLetter)
+                    ?? cased.first?.first(where: \.isLetter) else { return nil }
             return first.isLowercase ? .camel : .pascal
         }
         if cased.allSatisfy({ !$0.contains(where: \.isUppercase) }) { return .lowercase }
         if cased.allSatisfy({ !$0.contains(where: \.isLowercase) }), cased.contains(where: { $0.count > 4 }) { return .uppercase }
-        let capitalized = cased.map { word -> Bool in word.first(where: \.isLetter)?.isUppercase ?? false }
-        let small = WordLists.titleSmallWords(.english)
-        if capitalized.enumerated().allSatisfy({ $0.element || small.contains(cased[$0.offset].lowercased()) }) {
-            return cased.count > 1 ? .title : nil
+        func capitalized(_ word: String) -> Bool { word.first(where: \.isLetter)?.isUppercase ?? true }
+        let small = Set(NameLanguage.allCases.flatMap { WordLists.titleSmallWords($0) })
+        let multiWord = segments.contains { $0.count > 1 }
+        let isTitle = segments.allSatisfy { segment in
+            segment.enumerated().allSatisfy { index, word in
+                capitalized(word) || (index > 0 && index < segment.count - 1 && small.contains(word.lowercased()))
+            }
         }
-        if capitalized.first == true, capitalized.dropFirst().allSatisfy({ !$0 }) { return .sentence }
+        let isSentence = segments.allSatisfy { segment in
+            guard let first = segment.first, capitalized(first) else { return false }
+            return segment.dropFirst().allSatisfy { !$0.contains(where: \.isUppercase) || isAcronymLike($0) }
+        }
+        if isTitle, isSentence { return multiWord ? (segments.contains { $0.dropFirst().contains(where: capitalized) } ? .title : .sentence) : nil }
+        if isTitle { return .title }
+        if isSentence { return .sentence }
         return .asGenerated
+    }
+
+    static func isAcronymLike(_ word: String) -> Bool {
+        let letters = word.filter(\.isLetter)
+        return (2...4).contains(letters.count) && letters.allSatisfy(\.isUppercase)
     }
 
     static func isKindLabel(_ words: [String]) -> Bool {
