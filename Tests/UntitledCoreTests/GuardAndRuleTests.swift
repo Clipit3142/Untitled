@@ -120,30 +120,30 @@ struct ValidatorTests {
         let fields = PresetTests.referenceFields
         let good = NameFormatter.format(fields, style: Presets.clean, context: PresetTests.context)
         let rich = Evidence(text: String(repeating: "Swisscom invoice ", count: 3))
-        #expect(ProposalValidator.confidence(formatted: good, evidence: rich, guardrailOrRefusal: false, forcedBasic: false, currentName: "x.pdf").0 == .high)
-        #expect(ProposalValidator.confidence(formatted: good, evidence: Evidence(text: "short"), guardrailOrRefusal: false, forcedBasic: false, currentName: "x.pdf").1 == [.littleContent])
-        #expect(ProposalValidator.confidence(formatted: good, evidence: Evidence(text: "", topLabelConfidence: 0.8), guardrailOrRefusal: false, forcedBasic: false, currentName: "x.pdf").0 == .high)
-        #expect(ProposalValidator.confidence(formatted: good, evidence: rich, guardrailOrRefusal: true, forcedBasic: true, currentName: "x.pdf").1 == [.guardrailOrRefusal])
-        #expect(ProposalValidator.confidence(formatted: good, evidence: rich, guardrailOrRefusal: false, forcedBasic: false, currentName: good.fileName).1 == [.nameUnchanged])
+        #expect(ProposalValidator.confidence(formatted: good, evidence: rich, guardrailOrRefusal: false, currentName: "x.pdf").0 == .high)
+        #expect(ProposalValidator.confidence(formatted: good, evidence: Evidence(text: "short"), guardrailOrRefusal: false, currentName: "x.pdf").1 == [.littleContent])
+        #expect(ProposalValidator.confidence(formatted: good, evidence: Evidence(text: "", topLabelConfidence: 0.8), guardrailOrRefusal: false, currentName: "x.pdf").0 == .high)
+        #expect(ProposalValidator.confidence(formatted: good, evidence: rich, guardrailOrRefusal: true, currentName: "x.pdf").1 == [.guardrailOrRefusal])
+        #expect(ProposalValidator.confidence(formatted: good, evidence: rich, guardrailOrRefusal: false, currentName: good.fileName).1 == [.nameUnchanged])
         var metadataOnly = rich
         metadataOnly.metadataOnly = true
-        #expect(ProposalValidator.confidence(formatted: good, evidence: metadataOnly, guardrailOrRefusal: false, forcedBasic: false, currentName: "x").0 == .low)
+        #expect(ProposalValidator.confidence(formatted: good, evidence: metadataOnly, guardrailOrRefusal: false, currentName: "x").0 == .low)
 
         var piiFields = fields
         piiFields.subject = "4111 1111 1111 1111 john@example.com november"
         let guarded = NameFormatter.format(piiFields, style: Presets.clean, context: PresetTests.context)
-        #expect(ProposalValidator.confidence(formatted: guarded, evidence: rich, guardrailOrRefusal: false, forcedBasic: false, currentName: "x").1.contains(.guardsRemovedMostOfSubject))
+        #expect(ProposalValidator.confidence(formatted: guarded, evidence: rich, guardrailOrRefusal: false, currentName: "x").1.contains(.guardsRemovedMostOfSubject))
 
         var other = fields
         other.kind = .other
         var style = Presets.clean
         style.template = [.date(required: true), .kind(), .subject(required: true)]
         let optionalKind = NameFormatter.format(other, style: style, context: PresetTests.context)
-        #expect(ProposalValidator.confidence(formatted: optionalKind, evidence: rich, guardrailOrRefusal: false, forcedBasic: false, currentName: "x").0 == .high,
+        #expect(ProposalValidator.confidence(formatted: optionalKind, evidence: rich, guardrailOrRefusal: false, currentName: "x").0 == .high,
                 "Other only counts when Kind is required")
         style.template = [.date(required: true), .kind(required: true), .subject(required: true)]
         let requiredKind = NameFormatter.format(other, style: style, context: PresetTests.context)
-        #expect(ProposalValidator.confidence(formatted: requiredKind, evidence: rich, guardrailOrRefusal: false, forcedBasic: false, currentName: "x").1 == [.missingRequiredToken])
+        #expect(ProposalValidator.confidence(formatted: requiredKind, evidence: rich, guardrailOrRefusal: false, currentName: "x").1 == [.missingRequiredToken])
     }
 }
 

@@ -83,7 +83,6 @@ public enum LowConfidenceReason: String, Codable, Sendable, Hashable, CaseIterab
     case guardsRemovedMostOfSubject
     case nameUnchanged
     case metadataOnly
-    case basicNamingForced
 
     public var explanation: String {
         switch self {
@@ -93,7 +92,6 @@ public enum LowConfidenceReason: String, Codable, Sendable, Hashable, CaseIterab
         case .guardsRemovedMostOfSubject: "Most of the suggested subject was removed for privacy."
         case .nameUnchanged: "The suggested name is the same as the current one."
         case .metadataOnly: "Only the file's metadata could be read."
-        case .basicNamingForced: "Basic naming was used after an error."
         }
     }
 }

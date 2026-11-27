@@ -98,7 +98,8 @@ public enum ProposalValidator {
         if containsPhrase(sourceWords, in: evidence.text) {
             return "Found in the file: “\(source)”"
         }
-        if let domain = evidence.downloadDomain, domainMatches(sourceWords, domain: domain) {
+        if let domain = evidence.downloadDomain,
+           domainMatches(sourceWords, domain: domain) || DomainAliases.matches(source: source, domain: domain) {
             return "Downloaded from \(domain)"
         }
         if let app, !app.isEmpty {
@@ -137,7 +138,6 @@ public enum ProposalValidator {
         formatted: FormattedName,
         evidence: Evidence,
         guardrailOrRefusal: Bool,
-        forcedBasic: Bool,
         currentName: String
     ) -> (Confidence, [LowConfidenceReason]) {
         var reasons: [LowConfidenceReason] = []
@@ -146,7 +146,6 @@ public enum ProposalValidator {
         let confidentLabel = (evidence.topLabelConfidence ?? 0) >= 0.7
         if !enoughText, !confidentLabel { reasons.append(.littleContent) }
         if guardrailOrRefusal { reasons.append(.guardrailOrRefusal) }
-        if forcedBasic, !guardrailOrRefusal { reasons.append(.basicNamingForced) }
         if formatted.subjectWordsBefore > 0,
            Double(formatted.subjectWordsRemovedByGuards) / Double(formatted.subjectWordsBefore) >= 0.5 {
             reasons.append(.guardsRemovedMostOfSubject)
