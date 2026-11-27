@@ -38,7 +38,7 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         .target(name: "UntitledModel", dependencies: ["UntitledCore"], swiftSettings: swiftSettings),
-        .target(name: "UntitledExtract", dependencies: ["UntitledCore"], swiftSettings: swiftSettings),
+        .target(name: "UntitledExtract", dependencies: ["UntitledCore", "UntitledModel", "UntitledFS"], swiftSettings: swiftSettings),
         .target(
             name: "UntitledEngine",
             dependencies: ["UntitledCore", "UntitledFS", "UntitledStore", "UntitledModel", "UntitledExtract"],
@@ -61,7 +61,7 @@ let package = Package(
         .testTarget(name: "UntitledFSTests", dependencies: ["UntitledFS", "UntitledCore", "UntitledStore", "UntitledTestSupport", "untitled-journal-harness"], swiftSettings: swiftSettings),
         .testTarget(name: "UntitledStoreTests", dependencies: ["UntitledStore", "UntitledCore", "UntitledFS", "UntitledTestSupport"], swiftSettings: swiftSettings),
         .testTarget(name: "UntitledModelTests", dependencies: ["UntitledModel", "UntitledCore", "UntitledTestSupport"], swiftSettings: swiftSettings),
-        .testTarget(name: "UntitledExtractTests", dependencies: ["UntitledExtract", "UntitledCore"], resources: [.copy("Fixtures")], swiftSettings: swiftSettings),
+        .testTarget(name: "UntitledExtractTests", dependencies: ["UntitledExtract", "UntitledCore", "UntitledModel", "UntitledFS"], resources: [.copy("Fixtures")], swiftSettings: swiftSettings),
         .testTarget(
             name: "UntitledEngineTests",
             dependencies: ["UntitledEngine", "UntitledCore", "UntitledFS", "UntitledStore", "UntitledModel", "UntitledExtract", "UntitledTestSupport"],
