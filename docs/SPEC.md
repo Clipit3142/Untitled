@@ -1,6 +1,8 @@
-# Nomen — Product Specification
+# Untitled — Product Specification
 
-This is the source of truth for Nomen v1. If a criterion in Part 4 is wrong, the spec is changed first and the change is logged in Part 5.
+*The product was called Nomen in earlier drafts; it is named Untitled (Part 5, #46).*
+
+This is the source of truth for Untitled v1. If a criterion in Part 4 is wrong, the spec is changed first and the change is logged in Part 5.
 
 ---
 
@@ -8,7 +10,7 @@ This is the source of truth for Nomen v1. If a criterion in Part 4 is wrong, the
 
 ### Concept
 
-Nomen is a menu bar app that watches folders like Desktop and Downloads. It reads each new file on the Mac itself (screenshots, PDFs, scans, photos, office files) and renames it in your naming style. It can also file things into folders.
+Untitled is a menu bar app that watches folders like Desktop and Downloads. It reads each new file on the Mac itself (screenshots, PDFs, scans, photos, office files) and renames it in your naming style. It can also file things into folders.
 
 ### Feature ideas
 
@@ -88,7 +90,7 @@ Nomen is a menu bar app that watches folders like Desktop and Downloads. It read
 - Renaming well-named files would anger users. **Fix:** by default, only generic names (Screenshot…, IMG_1234, document (3), scan0001, UUIDs) are touched.
 - Files still being written (downloads, large copies) could be renamed mid-write. **Fix:** a stability gate and a list of temp names to ignore.
 - The sandbox blocks renaming without access to the file's folder, even for dragged-in files. **Fix:** every rename happens inside a folder the user granted. Dropping a file from anywhere else triggers a one-time folder grant.
-- Nomen's own renames fire file events that could trigger it again. **Fix:** own-operation suppression plus a marker on each processed file.
+- Untitled's own renames fire file events that could trigger it again. **Fix:** own-operation suppression plus a marker on each processed file.
 - Races: another app can create the target name between the check and the rename. **Fix:** an exclusive rename that fails instead of overwriting.
 - A crash mid-operation leaves the history wrong. **Fix:** a write-ahead journal.
 - Hallucinated dates and companies. **Fix:**
@@ -153,7 +155,7 @@ Cloud options are deferred, not dismissed. Apps in the App Store Small Business 
 
 ### 3.1 Product
 
-One line: Nomen gives new screenshots and downloads clear names in your style, on-device, with undo for everything.
+One line: Untitled gives new screenshots and downloads clear names in your style, on-device, with undo for everything.
 
 In v1:
 
@@ -194,16 +196,16 @@ Not in v1:
 
 ### 3.3 Glossary
 
-- **Granted folder:** a folder Nomen can write in. Its role is Watched, Destination or Access-only.
+- **Granted folder:** a folder Untitled can write in. Its role is Watched, Destination or Access-only.
   - Downloads is granted by entitlement.
   - Others are granted through the system folder picker and saved as security-scoped bookmarks.
-- **Watched folder:** a granted folder Nomen monitors, top level only.
+- **Watched folder:** a granted folder Untitled monitors, top level only.
 - **Mode** (per watched folder): Automatic, Review or Off.
 - **Fields:** kind, source, subject, date and app.
 - **Style:** the preferences that turn fields into a name.
 - **Proposal:** fields, plus the formatted name, destination, confidence and evidence.
 - **Basic naming:** the deterministic path used when the model can't be.
-- **Marker:** the extended attribute `com.yourcompany.Nomen.original`, set on every file Nomen has renamed.
+- **Marker:** the extended attribute `com.yourcompany.Untitled.original`, set on every file Untitled has renamed.
 
 ### 3.4 Defaults and limits (single source of truth)
 
@@ -218,7 +220,7 @@ Not in v1:
 | Subject words | 5 | 1–12 |
 | Examples stored / used | 20 / 5 per style | — |
 | Learning threshold | same edit ≥ 2 times in 30 days | — |
-| Finder edits count as feedback | within 7 days of Nomen's rename | — |
+| Finder edits count as feedback | within 7 days of Untitled's rename | — |
 | Burst guard | > 10 eligible files in 30 s in one folder | — |
 | Notification batching | ≥ 4 operations in 10 s | — |
 | Generation timeout | 20 s | — |
@@ -315,7 +317,7 @@ Dataless iCloud files also get metadata-only proposals and are never downloaded.
 ### 3.8 Model layer
 
 - **Model:** the system on-device model. macOS 27 lets apps pass images alongside text in prompts. Image input ships only if spike 2 confirms it on the reference Mac. The text-only path is always complete on its own. [apple](https://developer.apple.com/macos/whats-new/)
-- **Availability:** checked at launch and on change. If the model is not eligible, not enabled, or not ready, Nomen uses Basic naming and shows the status in the panel and in Settings.
+- **Availability:** checked at launch and on change. If the model is not eligible, not enabled, or not ready, Untitled uses Basic naming and shows the status in the panel and in Settings.
 - **One request per file:**
   - A fresh session, greedy sampling, and a non-streaming respond. Apple advises against streaming in the background because it uses more power and hits the rate limit sooner. [apple](https://developer.apple.com/forums/thread/789788?answerId=845702022)
   - Requests run one at a time, in arrival order.
@@ -457,7 +459,7 @@ User-typed names are never restyled. Only step 7 and the 255-byte limit apply, a
 
 - **Edit sources:**
   - edits in Review, Quick Rename and notification replies
-  - Finder renames of a marked file within 7 days of Nomen renaming it
+  - Finder renames of a marked file within 7 days of Untitled renaming it
 - **Patterns detected:** case change, separator change, date format or position change, token added or removed, word replaced, name shortened, filler removed.
 - **Suggestions:** when a pattern occurs at least 2 times in 30 days for one style, a card appears, e.g. "You changed 'Bill' to 'Invoice' twice. Always do this?" It offers Always, Not now and Never ask. Only Always changes the style.
 - **Examples:** accepted final names, 20 per style. The newest 5 go into prompts. They are visible and deletable, and only names are stored.
@@ -495,7 +497,7 @@ User-typed names are never restyled. Only step 7 and the 255-byte limit apply, a
   - delete a file, or change its contents
   - change dates, tags, comments or other extended attributes (including quarantine)
   - follow symlinks, or move across volumes
-- **Own-operation suppression:** events for files Nomen just moved are ignored for 5 s, keyed by file identifier.
+- **Own-operation suppression:** events for files Untitled just moved are ignored for 5 s, keyed by file identifier.
 - **Marker:** a binary plist holding the original name, the state (renamed or restored) and the first-renamed date. A file with a marker, in any state, is never processed automatically again.
 - **Project folders:** adding a watched folder that contains `.git`, `package.json`, `*.xcodeproj`, `Cargo.toml`, `pyproject.toml` or `go.mod` needs explicit confirmation.
 
@@ -515,7 +517,7 @@ User-typed names are never restyled. Only step 7 and the 255-byte limit apply, a
   - If the original name is taken, a collision suffix is added and the user is told.
   - If the original folder is missing, it is recreated only inside a granted folder; otherwise undo fails with an error.
   - If the file was deleted, undo is disabled and the reason is shown.
-  - If the user moved the file, Nomen finds it via its bookmark, and asks for access if it's now outside granted folders.
+  - If the user moved the file, Untitled finds it via its bookmark, and asks for access if it's now outside granted folders.
   - After a restore, the marker state becomes *restored*.
 - **Retention:** 90 days. Purges never touch planned entries or queued items.
 
@@ -536,7 +538,7 @@ User-typed names are never restyled. Only step 7 and the 255-byte limit apply, a
   - Hovering shows Undo and Show in Finder.
   - Rows can be dragged out as files, for example into a Mail message.
 - Suggestion card: appears when a learning suggestion is pending.
-- Footer: Open Nomen and Settings. A drop zone appears while files are dragged over the panel.
+- Footer: Open Untitled and Settings. A drop zone appears while files are dragged over the panel.
 
 **Quick Rename panel** (opened from Finder's right-click menu or by dropping files)
 
@@ -546,7 +548,7 @@ User-typed names are never restyled. Only step 7 and the 255-byte limit apply, a
   - A "Why this name?" disclosure, and a "Move to …" checkbox when a rule matches.
 - Controls: Return renames, Esc cancels, ⌘R regenerates. With several files, each gets its own field.
 - Loading: a shimmering placeholder while the proposal is generated.
-- Folders without access: Nomen first opens the folder picker on the file's folder. If the user declines, it offers to copy the suggested name instead.
+- Folders without access: Untitled first opens the folder picker on the file's folder. If the user declines, it offers to copy the suggested name instead.
 
 **Main window** (minimum 880 × 580, standard sidebar split view)
 
@@ -579,13 +581,13 @@ User-typed names are never restyled. Only step 7 and the 255-byte limit apply, a
 
 **Onboarding** (works fully from the keyboard, and resumes where you left off)
 
-1. Welcome, with the privacy promise: "Everything stays on this Mac. Nomen has no internet access."
+1. Welcome, with the privacy promise: "Everything stays on this Mac. Untitled has no internet access."
 2. Apple Intelligence status, with a button to its settings. Continuing with Basic naming is allowed.
 3. Folders: Desktop (the picker opens on Desktop), Downloads (no picker needed), and others.
 4. Style: presets with live examples, learn from a folder, or type example names.
 5. Mode: Review (default) or Automatic.
 6. Notifications permission, launch at login, and enabling the Finder extension.
-7. Live demo: "Take a screenshot." If none arrives within 10 s, Nomen explains that screenshots may be saved elsewhere and offers to add that folder.
+7. Live demo: "Take a screenshot." If none arrives within 10 s, Untitled explains that screenshots may be saved elsewhere and offers to add that folder.
 
 **Notifications**
 
@@ -598,8 +600,8 @@ User-typed names are never restyled. Only step 7 and the 255-byte limit apply, a
 **Finder extension**
 
 - Active in granted folders only.
-- Menu items: "Rename with Nomen…" (1–50 items), and "Restore Original Name" (only when the marker says renamed).
-- Requests go through the app-group container and a `nomen://` URL that carries only a request ID. Unknown IDs are ignored.
+- Menu items: "Rename with Untitled…" (1–50 items), and "Restore Original Name" (only when the marker says renamed).
+- Requests go through the app-group container and an `untitled://` URL that carries only a request ID. Unknown IDs are ignored.
 
 **Shortcuts actions**
 
@@ -662,17 +664,17 @@ Reference Mac: MacBook Air (M1, 8 GB). Unless stated, measurements are plugged i
 
 ### 3.20 Architecture and storage
 
-- **NomenCore** (pure, with no UI or file access): formatter, sanitizer, guards, date parsing, generic-name detector, eligibility rules, rule engine, edit diff, style inference.
-- **NomenFS:** watcher, snapshots, stability gate, journal, executor, marker, bookmarks.
-- **NomenExtract:** Vision, PDFKit, Quick Look, metadata, app timeline.
-- **NomenModel:** schema builder, budgeter, error policy, Basic naming.
-- **NomenStore** (GRDB):
+- **UntitledCore** (pure, with no UI or file access): formatter, sanitizer, guards, date parsing, generic-name detector, eligibility rules, rule engine, edit diff, style inference.
+- **UntitledFS:** watcher, snapshots, stability gate, journal, executor, marker, bookmarks.
+- **UntitledExtract:** Vision, PDFKit, Quick Look, metadata, app timeline.
+- **UntitledModel:** schema builder, budgeter, error policy, Basic naming.
+- **UntitledStore** (GRDB):
   - `config.sqlite`: folders, styles, rules, kinds, examples, learning, ignore list, event IDs
   - `history.sqlite`: history, journal and queue
 
   They are kept separate, so a damaged history never loses configuration. Thumbnails live in Caches, capped at 200 MB, with least-recently-used eviction.
-- **NomenEngine:** the pipeline that connects the modules above (queue, decide, execute, undo, learning, notification planning). It has no UI and runs in tests with fake extractors and a fake model. *(Added; see Part 5, #35.)*
-- **NomenUI** (SwiftUI), the **App** target, and the **FinderExtension** target.
+- **UntitledEngine:** the pipeline that connects the modules above (queue, decide, execute, undo, learning, notification planning). It has no UI and runs in tests with fake extractors and a fake model. *(Added; see Part 5, #35.)*
+- **UntitledUI** (SwiftUI), the **App** target, and the **FinderExtension** target.
 
 ### 3.21 Testing and spikes
 
@@ -688,7 +690,7 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 
 **Ongoing testing:**
 
-- Unit and property tests for NomenCore, integration tests on temp folders, a chaos harness, and UI tests.
+- Unit and property tests for UntitledCore, integration tests on temp folders, a chaos harness, and UI tests.
 - Instruments for hitches, leaks and energy.
 - A golden corpus scored with the Evaluations framework.
 - Prompt iteration with macOS 27's `fm` command-line tool, which accepts an image and a JSON schema. [apple](https://developer.apple.com/videos/play/wwdc2026/334)
@@ -728,7 +730,7 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 - **A3.** Entitlements match 3.2 exactly, diffed in CI.
 - **A4.** App Store review approves the app, and the privacy label reads "Data Not Collected".
 - **A5.** GRDB is the only third-party code, and its license appears in About.
-- **A6.** NomenCore and NomenFS have ≥ 90% line coverage, and every test passes 100 consecutive CI runs.
+- **A6.** UntitledCore and UntitledFS have ≥ 90% line coverage, and every test passes 100 consecutive CI runs.
 - **A7.** Launching a second copy brings the first copy forward and quits.
 - **A8.** The release build has no debug menus, test hooks, or TODO/FIXME markers.
 
@@ -746,7 +748,7 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 - **C1.** Folder access survives 20 app restarts, 5 OS restarts, and an app update.
 - **C2.** A watched folder that is renamed, moved or deleted shows "Needs attention" with Reconnect within 5 s or at launch.
 - **C3.** Files in subfolders are never processed automatically (100 nested fixtures, 0 processed).
-- **C4.** Files added while Nomen was quit are handled at the next launch, but only if their date added is on or after the watch start.
+- **C4.** Files added while Untitled was quit are handled at the next launch, but only if their date added is on or after the watch start.
 - **C5.** Unmounting a watched external volume shows "Disconnected" with no error loop. On remount, watching resumes within 10 s.
 - **C6.** Folders on exFAT, FAT, NTFS or network volumes are refused with an explanation.
 - **C7.** Project-like folders require explicit confirmation.
@@ -758,7 +760,7 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 - **D4.** Every exclusion in 3.6 has a fixture, and 100% of them are skipped. Dataless iCloud files keep their download status unchanged.
 - **D5.** The generic-name detector is 100% correct on ≥ 400 names, including every macOS language's screenshot name.
 - **D6.** A burst of 11 or more files copied into one folder at once causes 0 automatic renames, one Review group, and one notification. *(Part 5, #37)*
-- **D7.** In 1,000 scripted races where someone else renames the file mid-process, Nomen renames it 0 times.
+- **D7.** In 1,000 scripted races where someone else renames the file mid-process, Untitled renames it 0 times.
 - **D8.** Files with a marker in any state are never processed automatically.
 - **D9.** Renaming an existing file in place never triggers processing.
 
@@ -771,7 +773,7 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 - **E6.** Ambiguous numeric dates are never used.
 
 ### F. Model
-- **F1.** No Nomen process makes a single network connection during the whole test run.
+- **F1.** No Untitled process makes a single network connection during the whole test run.
 - **F2.** The same file, style, learned state and OS build give an identical name in 50 runs.
 - **F3.** For every availability state, Basic naming is used and the status shows within 5 s.
 - **F4.** Every row of the error table, injected via test hooks, behaves exactly as specified.
@@ -806,7 +808,7 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 - **I2.** After 500 random edits with every suggestion declined, the style state is byte-identical.
 - **I3.** "Never ask" suppresses that suggestion until reset.
 - **I4.** At most 20 examples are stored and the newest 5 are used. Deleting one takes effect from the next file.
-- **I5.** Finder renames within 7 days count as edits. Nomen's own operations never do.
+- **I5.** Finder renames within 7 days count as edits. Untitled's own operations never do.
 
 ### J. File safety
 - **J1.** A 10,000-operation chaos test runs concurrent creates, renames, moves, deletes, writes, rules and undo across two watched folders. Every file is accounted for, every SHA-256 is unchanged, and there are 0 overwrites.
@@ -858,10 +860,10 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 
 ### P. Notifications and integrations
 - **P1.** Notification permission is requested only in onboarding step 6.
-- **P2.** Every notification action works from banners and from Notification Center, with no Nomen window open.
+- **P2.** Every notification action works from banners and from Notification Center, with no Untitled window open.
 - **P3.** Batching and burst notices follow 3.15, and in-app actions never echo as notifications.
-- **P4.** Finder items appear only in granted folders, work for 1–50 items, and work when Nomen isn't running.
-- **P5.** Forged or unknown `nomen://` IDs do nothing.
+- **P4.** Finder items appear only in granted folders, work for 1–50 items, and work when Untitled isn't running.
+- **P5.** Forged or unknown `untitled://` IDs do nothing.
 - **P6.** Every Shortcuts action works from Shortcuts and from Siri, with clear errors for files outside granted folders.
 
 ### Q. Naming quality benchmark
@@ -901,7 +903,7 @@ Spike results can change numbers in 3.4 and 3.19. Any change is written into thi
 ### U. Performance
 - **U1.** Every 3.19 target is met over 100 samples.
 - **U2.** The main thread is never blocked for more than 50 ms in any scenario.
-- **U3.** Nomen is ready to watch ≤ 2 s after login.
+- **U3.** Untitled is ready to watch ≤ 2 s after login.
 - **U4.** A 24-hour soak shows 0 leaks, with memory within 3.19 limits.
 
 ### V. Energy
@@ -970,7 +972,7 @@ These issues came from reading Parts 1–4 against each other. Every fix is appl
 | 32 | Explicit requests on iCloud placeholders would download them | Metadata-only proposal, no download |
 | 33 | M4 allowed 100 ms hangs while U2 says 50 ms | M4 now points to U2 |
 | 34 | The "Go Automatic?" threshold had no UI or test | Added to Folders/panel and O6 |
-| 35 | 3.20 had no home for the pipeline that connects the modules, so it could only be tested through the UI | NomenEngine module added to 3.20; it has no UI and runs in tests with fakes |
+| 35 | 3.20 had no home for the pipeline that connects the modules, so it could only be tested through the UI | UntitledEngine module added to 3.20; it has no UI and runs in tests with fakes |
 | 36 | With camelCase or PascalCase (no word separator), a compact date and time ran together into a 12-digit number, which the PII rule forbids | The time joins the date with the word separator, or "-" when there is none |
 | 37 | "None of them is renamed automatically" could not hold for files renamed seconds before the 11th arrived without delaying every rename by 30 s, which breaks the 3.19 latency targets | The burst covers files still waiting when it begins and files arriving during it; D6 tests files copied in at once |
 | 38 | The 3-letter rule made two-character Japanese and Chinese names ("東京") generic | Han, kana and Hangul characters count as two letters |
@@ -981,3 +983,4 @@ These issues came from reading Parts 1–4 against each other. Every fix is appl
 | 43 | Kind Other would have appeared as the word "Other" in names | Other adds nothing to a name; it still counts as empty for confidence |
 | 44 | The month-name format was undefined for padding and for Japanese, Chinese and Korean | Unpadded day; CJK dates in their native order |
 | 45 | "Browser duplicate suffixes" as a generic pattern would rename "Invoice (1)" and similar chosen names | The suffix counts only together with a generic word |
+| 46 | The product name changed from Nomen to Untitled | Every user-facing name, the marker attribute (`com.yourcompany.Untitled.original`), the `untitled://` URL scheme, bundle identifiers and module names follow. Files named "Untitled" stay generic (3.6); that rule is about file names, not the app. Y2 still applies: "Untitled" must be cleared for trademark and App Store availability |

@@ -1,15 +1,15 @@
 // Test-only helper for J3 (kill -9 during operations). Not part of the app.
 //
-// Usage: nomen-journal-harness <work directory> <history.sqlite> <operations> <seed>
+// Usage: untitled-journal-harness <work directory> <history.sqlite> <operations> <seed>
 //
 // Renames random files in the work directory through the real executor and the real
 // history database. The journal is wrapped so each step pauses briefly, which makes a
 // SIGKILL from the test likely to land between "planned", the rename and "done".
 
 import Foundation
-import NomenCore
-import NomenFS
-import NomenStore
+import UntitledCore
+import UntitledFS
+import UntitledStore
 
 struct SlowJournal: JournalStore {
     let base: HistoryDatabase
@@ -33,7 +33,7 @@ struct SlowJournal: JournalStore {
 
 let arguments = CommandLine.arguments
 guard arguments.count == 5, let count = Int(arguments[3]), let seed = UInt64(arguments[4]) else {
-    FileHandle.standardError.write(Data("usage: nomen-journal-harness <dir> <db> <operations> <seed>\n".utf8))
+    FileHandle.standardError.write(Data("usage: untitled-journal-harness <dir> <db> <operations> <seed>\n".utf8))
     exit(2)
 }
 let directory = arguments[1]
