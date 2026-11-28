@@ -1,6 +1,6 @@
 #if canImport(FoundationModels)
-public import Foundation
-public import FoundationModels
+import Foundation
+import FoundationModels
 public import UntitledCore
 
 /// The on-device Apple model through the Foundation Models framework (3.8).
@@ -66,24 +66,14 @@ public struct AppleFieldGenerator: FieldGenerator {
         }
     }
 
+    /// The SDK has no token counting API, so the budget uses a conservative estimate; a
+    /// context overflow is still handled by the error policy (retry with half the content).
     public func tokenCount(instructions: String, prompt: String, image: PromptImage?) async throws -> Int {
-        var total = 0
-        if !instructions.isEmpty {
-            total += try await model.tokenUsage(for: Instructions(instructions)).tokenCount
-        }
-        if let image {
-            total += try await model.tokenUsage(for: Prompt {
-                prompt
-                Attachment(image.cgImage)
-            }).tokenCount
-        } else if !prompt.isEmpty {
-            total += try await model.tokenUsage(for: Prompt(prompt)).tokenCount
-        }
-        return total
+        TokenEstimator.estimate(instructions: instructions, prompt: prompt, hasImage: image != nil)
     }
 
     public func contextSize() async throws -> Int {
-        try await model.contextSize
+        model.contextSize
     }
 
     public func prewarm(instructions: String) async {
