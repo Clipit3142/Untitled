@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS build, gates and tests
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      XCODE_APP: /Applications/Xcode_27.app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 27
+        run: sudo xcode-select -s "$XCODE_APP" && xcodebuild -version
+      - name: Spec gates (A3 entitlements, A8 release hygiene, project file)
+        run: |
+          python3 scripts/check_entitlements.py
+          scripts/check_release_hygiene.sh
+          scripts/check_glass_usage.sh
+          python3 scripts/check_xcodeproj.py
+      - name: Package builds with zero warnings (A1)
+        run: swift build --package-path UntitledKit -c release -Xswiftc -warnings-as-errors
+      - name: App builds with one xcodebuild command, zero warnings, arm64 only (A1, A2)
+        run: |
+          set -o pipefail
+          xcodebuild -project Untitled.xcodeproj -scheme Untitled -configuration Release \
+            -destination 'platform=macOS,arch=arm64' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build \
+            | tee xcodebuild.log
+          if grep -E ': warning: ' xcodebuild.log; then echo "::error::warnings in the app build (A1)"; exit 1; fi
+          lipo -archs build/Build/Products/Release/Untitled.app/Contents/MacOS/Untitled | grep -qx arm64
+      - name: Tests with coverage gate (A6)
+        run: python3 scripts/coverage.py
+      - name: Release-mode tests
+        run: swift test --package-path UntitledKit -c release -Xswiftc -enable-testing
+      - name: Slow tests (D1 2 GB over 60 s)
+        run: UNTITLED_SLOW_TESTS=1 swift test --package-path UntitledKit --filter LargeFileTests
+
+  linux:
+    name: Linux tests (platform-independent modules)
+    runs-on: ubuntu-24.04
+    container: swift:6.2
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build with zero warnings
+        run: swift build --package-path UntitledKit --build-tests -Xswiftc -warnings-as-errors
+      - name: Tests
+        run: swift test --package-path UntitledKit --skip-build
