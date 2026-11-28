@@ -40,11 +40,16 @@ extension Engine {
     }
 
     /// Proposals for explicitly chosen files (Quick Rename, Shortcuts). Regenerate uses random sampling (3.8).
-    public func explicitProposals(paths: [String], regenerate: Bool = false) async throws(ExplicitError) -> [ExplicitProposal] {
+    /// `readOnly` allows files outside granted folders, for the "Copy name" fallback when the user
+    /// declines access (M6): those proposals can be read, never applied.
+    public func explicitProposals(paths: [String], regenerate: Bool = false, readOnly: Bool = false) async throws(ExplicitError) -> [ExplicitProposal] {
         guard Defaults.quickRenameSelection.contains(paths.count) else { throw .selectionSize(paths.count) }
         var results: [ExplicitProposal] = []
         for path in paths {
-            guard let folder = grantedFolder(containing: path) else { throw .outsideGrantedFolders(folder: FileSystem.parent(path)) }
+            let granted = grantedFolder(containing: path)
+            guard granted != nil || readOnly else { throw .outsideGrantedFolders(folder: FileSystem.parent(path)) }
+            let folder = granted ?? GrantedFolder(id: "", path: FileSystem.parent(path), role: .accessOnly,
+                                                  styleID: defaultStyleID(), watchStart: deps.now())
             guard let read = FileFactsReader.read(path: path, isTopLevel: FileSystem.parent(path) == folder.path) else { throw .missing }
             let decision = Eligibility.evaluate(read.facts, folder: nil, request: .explicit, paused: false)
             var metadataOnly: MetadataOnlyReason?
@@ -135,6 +140,11 @@ extension Engine {
         emit(.queueChanged)
         wakeWorker()
         return count
+    }
+
+    /// The style for files outside any watched folder: the first watched folder's, or Clean.
+    func defaultStyleID() -> String {
+        folders.values.filter { $0.role == .watched }.sorted { $0.displayName < $1.displayName }.first?.styleID ?? Presets.clean.id
     }
 
     static func explain(_ reason: SkipReason) -> String {

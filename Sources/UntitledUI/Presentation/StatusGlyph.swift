@@ -59,14 +59,17 @@ public struct GlyphPath: Sendable, Hashable {
         public var elements: [Element]
         public var lineWidth: Double
         public var filled: Bool
-        /// Clears what is under the shape first (a knockout), so marks stay readable on the base.
+        /// Clears a ring this wide around the shape in the base, so marks stay readable on it.
         public var knockout: Double
+        /// Erases from the badge instead of drawing (the "!" cut out of the warning triangle).
+        public var erases: Bool
 
-        public init(_ elements: [Element], lineWidth: Double = 1.5, filled: Bool = false, knockout: Double = 0) {
+        public init(_ elements: [Element], lineWidth: Double = 1.5, filled: Bool = false, knockout: Double = 0, erases: Bool = false) {
             self.elements = elements
             self.lineWidth = lineWidth
             self.filled = filled
             self.knockout = knockout
+            self.erases = erases
         }
     }
 
@@ -74,9 +77,9 @@ public struct GlyphPath: Sendable, Hashable {
 
     /// The base: a page with a folded corner and a name line, the "untitled document".
     public static let base: [Shape] = [
-        Shape([.move(4, 2), .line(10.5, 2), .line(14, 5.5), .line(14, 16), .line(4, 16), .close]),
-        Shape([.move(10.5, 2), .line(10.5, 5.5), .line(14, 5.5)], lineWidth: 1.2),
-        Shape([.move(6.5, 12), .line(11.5, 12)], lineWidth: 1.5),
+        Shape([.move(3, 1.75), .line(9.25, 1.75), .line(12.75, 5.25), .line(12.75, 16.25), .line(3, 16.25), .close]),
+        Shape([.move(9.25, 1.75), .line(9.25, 5.25), .line(12.75, 5.25)], lineWidth: 1.2),
+        Shape([.move(5.5, 11.5), .line(9.5, 11.5)], lineWidth: 1.5),
     ]
 
     /// The badge for a state, drawn in the lower right with a knockout ring.
@@ -85,19 +88,21 @@ public struct GlyphPath: Sendable, Hashable {
         case .none:
             return []
         case .dot:
-            return [Shape([.ellipse(11, 11, 6, 6)], filled: true, knockout: 1.5)]
+            return [Shape([.ellipse(10.75, 10.25, 6.5, 6.5)], lineWidth: 0.5, filled: true, knockout: 1.8)]
         case .slash:
-            return [Shape([.move(2, 16.5), .line(16, 1.5)], lineWidth: 1.6, knockout: 1.4)]
+            return [Shape([.move(1.5, 17), .line(16.5, 1)], lineWidth: 1.7, knockout: 1.3)]
         case .exclamation:
-            return [Shape([.move(14, 9.5), .line(14, 13.8)], lineWidth: 1.8, knockout: 1.6),
-                    Shape([.ellipse(13.05, 15.2, 1.9, 1.9)], filled: true, knockout: 1.2)]
+            // A warning triangle with the exclamation mark cut out.
+            return [Shape([.move(13.75, 8.25), .line(17.75, 16.75), .line(9.75, 16.75), .close], lineWidth: 1, filled: true, knockout: 1.4),
+                    Shape([.move(13.75, 11.25), .line(13.75, 13.6)], lineWidth: 1.3, erases: true),
+                    Shape([.ellipse(13.05, 14.55, 1.4, 1.4)], lineWidth: 0.2, filled: true, erases: true)]
         case .sparkle:
             // A four-point star whose size pulses over three frames while working.
-            let scale = [1.0, 0.75, 0.5][((frame % 3) + 3) % 3]
-            let cx = 14.0, cy = 14.0, r = 3.6 * scale, w = 1.1 * scale
+            let scale = [1.0, 0.8, 0.6][((frame % 3) + 3) % 3]
+            let cx = 13.5, cy = 12.75, r = 4.25 * scale, w = 1.25 * scale
             return [Shape([.move(cx, cy - r), .line(cx + w, cy - w), .line(cx + r, cy), .line(cx + w, cy + w),
                            .line(cx, cy + r), .line(cx - w, cy + w), .line(cx - r, cy), .line(cx - w, cy - w), .close],
-                          filled: true, knockout: 1.3)]
+                          lineWidth: 0.6, filled: true, knockout: 1.3)]
         }
     }
 
@@ -106,7 +111,7 @@ public struct GlyphPath: Sendable, Hashable {
     }
 
     /// SVG for tests and for reviewing the glyphs at 1x and 2x.
-    public static func svg(for state: GlyphState, frame: Int = 0, scale: Double = 1) -> String {
+    public static func svg(for state: GlyphState, frame: Int = 0, scale: Double = 1, color: String = "black") -> String {
         func path(_ elements: [Element]) -> String {
             elements.map { element in
                 switch element {
@@ -118,21 +123,25 @@ public struct GlyphPath: Sendable, Hashable {
                 }
             }.joined(separator: " ")
         }
+        func draw(_ shape: Shape, color: String, extra: Double = 0, mask: String? = nil) -> String {
+            let fill = shape.filled ? color : "none"
+            let maskAttribute = mask.map { " mask=\"url(#\($0))\"" } ?? ""
+            return "<path d=\"\(path(shape.elements))\" fill=\"\(fill)\" stroke=\"\(color)\" stroke-width=\"\(shape.lineWidth + extra)\" stroke-linejoin=\"round\" stroke-linecap=\"round\"\(maskAttribute)/>"
+        }
+        let badgeShapes = badge(state.badge, frame: frame)
+        let knockouts = badgeShapes.filter { !$0.erases && $0.knockout > 0 }.map { draw($0, color: "black", extra: 2 * $0.knockout) }.joined()
+        let erasers = badgeShapes.filter(\.erases).map { draw($0, color: "black") }.joined()
+        let white = "<rect width=\"\(size)\" height=\"\(size)\" fill=\"white\"/>"
+        // Mask IDs are unique per glyph, so several glyphs can share one document.
+        let k = "k-\(state.rawValue)-\(frame)", e = "e-\(state.rawValue)-\(frame)"
+        let body = base.map { draw($0, color: color, mask: k) }.joined()
+            + badgeShapes.filter { !$0.erases }.map { draw($0, color: color, mask: e) }.joined()
+        // Masks in user space: the default bounding-box units clip strokes and hide the flat name line.
+        let units = "maskUnits=\"userSpaceOnUse\" x=\"0\" y=\"0\" width=\"\(size)\" height=\"\(size)\""
         let pixels = size * scale
-        var body = ""
-        var maskShapes = ""
-        for shape in badge(state.badge, frame: frame) where shape.knockout > 0 {
-            maskShapes += "<path d=\"\(path(shape.elements))\" fill=\"\(shape.filled ? "black" : "none")\" stroke=\"black\" stroke-width=\"\(shape.lineWidth + 2 * shape.knockout)\" stroke-linecap=\"round\"/>"
-        }
-        for shape in base {
-            body += "<path d=\"\(path(shape.elements))\" fill=\"none\" stroke=\"black\" stroke-width=\"\(shape.lineWidth)\" stroke-linejoin=\"round\" stroke-linecap=\"round\" mask=\"url(#k)\"/>"
-        }
-        for shape in badge(state.badge, frame: frame) {
-            body += "<path d=\"\(path(shape.elements))\" fill=\"\(shape.filled ? "black" : "none")\" stroke=\"black\" stroke-width=\"\(shape.filled ? 0 : shape.lineWidth)\" stroke-linecap=\"round\"/>"
-        }
         return """
         <svg xmlns="http://www.w3.org/2000/svg" width="\(pixels)" height="\(pixels)" viewBox="0 0 \(size) \(size)">\
-        <defs><mask id="k"><rect width="\(size)" height="\(size)" fill="white"/>\(maskShapes)</mask></defs>\(body)</svg>
+        <defs><mask id="\(k)" \(units)>\(white)\(knockouts)</mask><mask id="\(e)" \(units)>\(white)\(erasers)</mask></defs>\(body)</svg>
         """
     }
 }

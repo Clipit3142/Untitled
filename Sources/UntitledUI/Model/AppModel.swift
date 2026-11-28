@@ -99,6 +99,7 @@ public final class AppModel {
                 await self.handle(event)
             }
         }
+        await engine.prepare()
         if onboarding.allowsWatching || onboarding.step == .demo { await startEngine() }
         await refreshAll()
         loaded = true
@@ -117,6 +118,7 @@ public final class AppModel {
         do {
             try await engine.start()
             engineStarted = true
+            await refreshAll()
         } catch {
             post("Untitled couldn't start watching: \(error.localizedDescription)")
         }
@@ -397,6 +399,7 @@ public final class AppModel {
     public func resetEverything() async {
         try? await engine.resetEverything(thumbnails: thumbnails)
         engineStarted = false
+        await engine.prepare()
         preferences = AppPreferences()
         onboarding = OnboardingFlow()
         await store.savePreferences(preferences)
@@ -410,8 +413,8 @@ public final class AppModel {
 
     // MARK: Explicit requests (Quick Rename, Finder, Shortcuts)
 
-    public func explicitProposals(paths: [String], regenerate: Bool = false) async throws(ExplicitError) -> [ExplicitProposal] {
-        try await engine.explicitProposals(paths: paths, regenerate: regenerate)
+    public func explicitProposals(paths: [String], regenerate: Bool = false, readOnly: Bool = false) async throws(ExplicitError) -> [ExplicitProposal] {
+        try await engine.explicitProposals(paths: paths, regenerate: regenerate, readOnly: readOnly)
     }
 
     public func applyExplicit(_ proposal: ExplicitProposal, typedBase: String?, move: Bool) async throws(ExplicitError) -> String {

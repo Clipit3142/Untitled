@@ -130,11 +130,8 @@ public actor Engine {
     /// and starts watching. Call only after onboarding finished or was skipped (B7).
     public func start() async throws {
         guard !started else { return }
+        loadConfiguration()
         started = true
-        settings = (try? deps.config.setting(EngineSettings.self, key: "engineSettings")) ?? EngineSettings()
-        pause = (try? deps.config.setting(PauseState.self, key: "pause")) ?? .none
-        ruleWarnings = (try? deps.config.setting(Set<String>.self, key: "ruleWarnings")) ?? []
-        recentFacts = (try? deps.config.setting([RecentFacts].self, key: "recentFacts")) ?? []
         _ = try? Reconciler(journal: deps.history).reconcile()
         purgeIfDue(force: true)
         for folder in try deps.config.folders() { folders[folder.id] = folder }
@@ -158,6 +155,22 @@ public actor Engine {
         }
         wakeWorker()
         emit(.statusChanged)
+    }
+
+    /// Loads settings and folders without watching anything, so onboarding and Settings can show
+    /// them before watching starts (B7).
+    public func prepare() {
+        guard !started else { return }
+        loadConfiguration()
+    }
+
+    func loadConfiguration() {
+        settings = (try? deps.config.setting(EngineSettings.self, key: "engineSettings")) ?? EngineSettings()
+        pause = (try? deps.config.setting(PauseState.self, key: "pause")) ?? .none
+        ruleWarnings = (try? deps.config.setting(Set<String>.self, key: "ruleWarnings")) ?? []
+        recentFacts = (try? deps.config.setting([RecentFacts].self, key: "recentFacts")) ?? []
+        folders.removeAll()
+        for folder in (try? deps.config.folders()) ?? [] { folders[folder.id] = folder }
     }
 
     public func stop() {

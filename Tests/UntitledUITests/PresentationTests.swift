@@ -77,7 +77,16 @@ struct GlyphTests {
     }
 
     @Test("Every state has a VoiceOver label and renders as SVG")
-    func labels() {
+    func labels() throws {
+        // Set UNTITLED_GLYPH_OUT to a folder to export the glyphs for visual review.
+        if let folder = ProcessInfo.processInfo.environment["UNTITLED_GLYPH_OUT"] {
+            for state in GlyphState.allCases {
+                for scale in [1.0, 2.0] {
+                    try GlyphPath.svg(for: state, scale: scale)
+                        .write(toFile: "\(folder)/\(state.rawValue)@\(Int(scale))x.svg", atomically: true, encoding: .utf8)
+                }
+            }
+        }
         #expect(Set(GlyphState.allCases.map(\.accessibilityLabel)).count == 5)
         for state in GlyphState.allCases {
             let svg = GlyphPath.svg(for: state, scale: 2)
