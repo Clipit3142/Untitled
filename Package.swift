@@ -20,6 +20,7 @@ let package = Package(
         .library(name: "UntitledExtract", targets: ["UntitledExtract"]),
         .library(name: "UntitledEngine", targets: ["UntitledEngine"]),
         .library(name: "UntitledUI", targets: ["UntitledUI"]),
+        .library(name: "UntitledShared", targets: ["UntitledShared"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", exact: "7.9.0"),
@@ -38,6 +39,7 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
         .target(name: "UntitledModel", dependencies: ["UntitledCore"], swiftSettings: swiftSettings),
+        .target(name: "UntitledShared", dependencies: ["UntitledFS"], swiftSettings: swiftSettings),
         .target(name: "UntitledExtract", dependencies: ["UntitledCore", "UntitledModel", "UntitledFS"], swiftSettings: swiftSettings),
         .target(
             name: "UntitledEngine",
@@ -46,7 +48,7 @@ let package = Package(
         ),
         .target(
             name: "UntitledUI",
-            dependencies: ["UntitledCore", "UntitledFS", "UntitledStore", "UntitledModel", "UntitledExtract", "UntitledEngine"],
+            dependencies: ["UntitledCore", "UntitledFS", "UntitledStore", "UntitledModel", "UntitledExtract", "UntitledEngine", "UntitledShared"],
             swiftSettings: swiftSettings
         ),
         // Test-only helper process for the kill -9 journal test (J3). Not part of the app.
@@ -64,7 +66,12 @@ let package = Package(
         .testTarget(name: "UntitledExtractTests", dependencies: ["UntitledExtract", "UntitledCore", "UntitledModel", "UntitledFS"], resources: [.copy("Fixtures")], swiftSettings: swiftSettings),
         .testTarget(
             name: "UntitledEngineTests",
-            dependencies: ["UntitledEngine", "UntitledCore", "UntitledFS", "UntitledStore", "UntitledModel", "UntitledExtract", "UntitledTestSupport"],
+            dependencies: ["UntitledEngine", "UntitledCore", "UntitledFS", "UntitledStore", "UntitledModel", "UntitledExtract", "UntitledShared", "UntitledTestSupport"],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "UntitledUITests",
+            dependencies: ["UntitledUI", "UntitledEngine", "UntitledCore", "UntitledFS", "UntitledStore", "UntitledModel", "UntitledExtract", "UntitledShared", "UntitledTestSupport"],
             swiftSettings: swiftSettings
         ),
     ]

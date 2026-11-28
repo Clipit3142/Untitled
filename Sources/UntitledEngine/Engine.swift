@@ -86,6 +86,8 @@ public actor Engine {
     var ruleWarnings: Set<String> = []
     var recentFacts: [RecentFacts] = []
     var lastOperationID: Int64?
+    /// True while the worker is naming a file; the menu bar glyph animates only then (3.16).
+    var working = false
 
     public init(_ dependencies: Dependencies) {
         deps = dependencies
@@ -206,7 +208,14 @@ public actor Engine {
         if let saved {
             snapshots[folder.id] = saved
         } else {
-            let baseline = (try? FolderSnapshot.scan(folder.path)) ?? FolderSnapshot()
+            // The first scan of a folder. Files added after the watch start but before watching
+            // began (for example during onboarding) stay out of the baseline, so they arrive (C4).
+            let scanned = (try? FolderSnapshot.scan(folder.path)) ?? FolderSnapshot()
+            let baseline = FolderSnapshot(entries: scanned.entries.filter { _, entry in
+                guard let read = FileFactsReader.read(path: FileSystem.join(folder.path, entry.name), isTopLevel: true),
+                      let added = read.facts.dateAdded else { return true }
+                return added < folder.watchStart
+            })
             snapshots[folder.id] = baseline
             try? deps.config.saveSnapshot(baseline, folderID: folder.id)
         }
@@ -406,12 +415,20 @@ public actor Engine {
     /// Processes pending items one at a time, in arrival order.
     func drainQueue() async {
         guard started else { return }
+        defer { setWorking(false) }
         while let next = items.values.filter({ $0.status == .pending && settlingFolders[$0.folderID ?? ""] == nil })
             .min(by: { $0.arrival < $1.arrival }) {
             if holdReason() != nil { return }
+            setWorking(true)
             await process(next)
         }
         if modelStatus == .idle { emit(.statusChanged) }
+    }
+
+    func setWorking(_ value: Bool) {
+        guard working != value else { return }
+        working = value
+        emit(.statusChanged)
     }
 
     func holdReason() -> HoldReason? {

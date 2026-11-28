@@ -2,7 +2,7 @@ import Foundation
 public import UntitledCore
 public import UntitledFS
 public import UntitledStore
-import UntitledModel
+public import UntitledModel
 import UntitledExtract
 
 /// An edit made in Review before accepting.
@@ -277,6 +277,14 @@ extension Engine {
     }
 
     public func reviewCount() -> Int { items.values.filter { $0.status == .review }.count }
+
+    /// Whether a file is being named right now.
+    public func isWorking() -> Bool { working }
+
+    /// The model's current state, for the Apple Intelligence settings and the status pill.
+    public func modelAvailability() -> ModelAvailability {
+        settings.basicNamingOnly ? .basicOnly : deps.availability()
+    }
 
     // MARK: Rule tester (K1)
 

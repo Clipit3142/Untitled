@@ -44,6 +44,8 @@ public enum EngineEvent: Sendable, Hashable {
     case statusChanged
     case foldersChanged
     case suggestionsChanged
+    /// Styles, rules, destinations, kinds or examples changed.
+    case libraryChanged
     case automaticOffer(folderID: String)
     case notice(String)
 }

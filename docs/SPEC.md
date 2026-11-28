@@ -587,7 +587,7 @@ User-typed names are never restyled. Only step 7 and the 255-byte limit apply, a
 4. Style: presets with live examples, learn from a folder, or type example names.
 5. Mode: Review (default) or Automatic.
 6. Notifications permission, launch at login, and enabling the Finder extension.
-7. Live demo: "Take a screenshot." If none arrives within 10 s, Untitled explains that screenshots may be saved elsewhere and offers to add that folder.
+7. Live demo (watching starts here, *Part 5, #49*): "Take a screenshot." If none arrives within 10 s, Untitled explains that screenshots may be saved elsewhere and offers to add that folder.
 
 **Notifications**
 
@@ -986,3 +986,5 @@ These issues came from reading Parts 1–4 against each other. Every fix is appl
 | 48 | Two equal checks 0.5 s apart can both fall between the chunks of a slow writer, so D1's 2 GB file written over 60 s would be named mid-write | The file must also be quiet for twice the longest gap seen between its writes, capped at 10 s; one-shot writes keep the 1 s wait |
 | 47 | Browsers finish downloads, and apps save atomically, by renaming a temporary or hidden file to its real name; read as "renamed in place", those files were never processed, contradicting D2 | A rename from an in-progress or hidden name counts as an arrival; renaming any other existing file still never triggers processing (D9) |
 | 46 | The product name changed from Nomen to Untitled | Every user-facing name, the marker attribute (`com.yourcompany.Untitled.original`), the `untitled://` URL scheme, bundle identifiers and module names follow. Files named "Untitled" stay generic (3.6); that rule is about file names, not the app. Y2 still applies: "Untitled" must be cleared for trademark and App Store availability |
+| 49 | B7 says nothing is watched before onboarding finishes, but step 7's live demo needs watching, and files added between choosing a folder and finishing were lost to the first scan | Watching starts when step 7 begins (setup is complete then). A folder's first scan treats files added on or after its watch start as arrivals, as C4 does after a restart |
+| 50 | The status pill and glyph had no state for "naming a file right now", so the working glyph could not animate | The engine reports when it is naming a file; the glyph animates only then (3.16) |
