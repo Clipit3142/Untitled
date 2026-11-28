@@ -72,8 +72,29 @@ public enum SharedHandoff {
         return (try? JSONDecoder().decode([String].self, from: data)) ?? []
     }
 
+    /// Paths of files Untitled renamed and has not restored, published by the app for the
+    /// extension, whose sandbox may not let it read the marker on the user's files.
+    public static func publishRenamedPaths(_ paths: [String], container: URL) {
+        let file = container.appendingPathComponent("RenamedPaths.json")
+        try? JSONEncoder().encode(paths).write(to: file, options: .atomic)
+    }
+
+    public static func renamedPaths(container: URL) -> Set<String> {
+        let file = container.appendingPathComponent("RenamedPaths.json")
+        guard let data = try? Data(contentsOf: file) else { return [] }
+        return Set((try? JSONDecoder().decode([String].self, from: data)) ?? [])
+    }
+
     /// True when Untitled renamed this file and it has not been restored ("Restore Original Name").
-    public static func canRestore(path: String) -> Bool {
-        Marker.read(atPath: path)?.state == .renamed
+    /// The marker decides when it can be read; otherwise the app's published list does.
+    public static func canRestore(path: String, container: URL? = nil) -> Bool {
+        if let marker = Marker.read(atPath: path) { return marker.state == .renamed }
+        guard let container else { return false }
+        return renamedPaths(container: container).contains(path)
+    }
+
+    /// Whether a path is inside one of the published granted folders (P4).
+    public static func isGranted(path: String, container: URL) -> Bool {
+        grantedFolders(container: container).contains { FileSystem.isInside(path, root: $0) }
     }
 }

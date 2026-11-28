@@ -18,6 +18,8 @@ public final class AppModel {
     @ObservationIgnored public var calendar: Calendar
     @ObservationIgnored var eventsTask: Task<Void, Never>?
     @ObservationIgnored var engineStarted = false
+    /// Called after history or folders change, so the Finder extension's shared lists stay current.
+    @ObservationIgnored public var onSharedStateChanged: () -> Void = {}
     /// Called when the app's Dock presence should change (O1).
     @ObservationIgnored public var onPreferencesChanged: (AppPreferences) -> Void = { _ in }
 
@@ -163,12 +165,16 @@ public final class AppModel {
 
     func refreshRecent() async {
         recent = await engine.activity(limit: Metrics.recentCount)
+        onSharedStateChanged()
     }
 
     func refreshFolders() async {
         folders = await engine.allFolders()
         status = await engine.status()
+        onSharedStateChanged()
     }
+
+    public func renamedPaths() async -> [String] { await engine.renamedPaths() }
 
     func refreshLibrary() async {
         styles = await engine.styles()
@@ -238,6 +244,14 @@ public final class AppModel {
         return result
     }
 
+    public func entry(id: Int64) async -> JournalEntry? { await engine.entry(id: id) }
+
+    public func undo(entryIDs: [Int64]) async {
+        let results = await engine.undo(entryIDs: entryIDs)
+        for case .unavailable(let reason) in results.values { post(reason) }
+        await refreshRecent()
+    }
+
     public func activity(search: String) async -> [JournalEntry] {
         await engine.activity(search: search, limit: 2_000)
     }
@@ -251,8 +265,9 @@ public final class AppModel {
     // MARK: Review (3.15)
 
     public func accept(_ itemIDs: [String], edits: [String: ReviewEdit] = [:], moveEnabled: [String: Bool] = [:],
+                       method: OperationMethod = .review,
                        progress: @escaping @Sendable (Int, Int) -> Void = { _, _ in }) async -> AcceptReport {
-        let report = await engine.accept(itemIDs: itemIDs, edits: edits, moveEnabled: moveEnabled, progress: progress)
+        let report = await engine.accept(itemIDs: itemIDs, edits: edits, moveEnabled: moveEnabled, method: method, progress: progress)
         if !report.failed.isEmpty { post(report.failed.joined(separator: "\n")) }
         await refreshQueue()
         await refreshRecent()
@@ -324,6 +339,8 @@ public final class AppModel {
         folder.mode = .automatic
         await updateFolder(folder)
     }
+
+    public func weeklyCount(folderID: String) async -> Int { await engine.weeklyCount(folderID: folderID) }
 
     public func renameExisting(folderID: String) async -> Int {
         let count = (try? await engine.renameExisting(folderID: folderID)) ?? 0

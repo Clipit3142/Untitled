@@ -296,3 +296,131 @@ struct AppleIntelligencePaneTests {
         #expect(AppleIntelligencePane.settingsURL.scheme == "x-apple.systempreferences")
     }
 }
+
+@Suite("Why this name? (M2)")
+struct WhyThisNameTests {
+    @Test("Every part of the name has an explanation, with or without stored evidence")
+    func coversEveryPart() {
+        var generator = SeededGenerator(seed: 7)
+        let kinds: [KindRef] = [.builtIn(.invoice), .builtIn(.webPage), .other]
+        for _ in 0..<500 {
+            let fields = NameFields(kind: kinds.randomElement(using: &generator)!, source: Bool.random(using: &generator) ? "Swisscom" : nil,
+                                    subject: ["Mobile subscription", "Flight booking", ""].randomElement(using: &generator)!,
+                                    date: DateValue(year: 2026, month: 11, day: Int.random(in: 1...28, using: &generator)),
+                                    dateSource: DateSource.allCases.randomElement(using: &generator), app: "Safari", original: "Draft")
+            var style = Presets.all.randomElement(using: &generator)!
+            style.template.append(.original())
+            style.template.append(.text("v1"))
+            let screenshot = Bool.random(using: &generator)
+            let formatted = NameFormatter.format(fields, style: style, context: FormatContext(fileExtension: "pdf", isScreenshot: screenshot))
+            let evidence = Bool.random(using: &generator) ? [PartEvidence(token: .source, explanation: "“Swisscom AG” on page 1")] : []
+            let proposal = Proposal(fields: fields, fileName: formatted.fileName, parts: formatted.parts, evidence: evidence,
+                                    confidence: .high, lowReasons: [], styleID: style.id, styleVersion: 1, path: .model,
+                                    language: .english, isScreenshot: screenshot)
+            let rows = WhyThisName.rows(for: proposal)
+            #expect(rows.count >= formatted.parts.count)
+            for (part, row) in zip(formatted.parts, rows) {
+                #expect(row.text == part.text)
+                #expect(!row.explanation.isEmpty)
+            }
+        }
+    }
+
+    @Test("Basic naming and low confidence are explained")
+    func basicAndLow() {
+        let proposal = Proposal(fields: NameFields(subject: "Scan"), fileName: "Scan.pdf", parts: [RenderedPart(token: .subject, text: "Scan", required: true)],
+                                evidence: [], confidence: .low, lowReasons: [.littleContent], styleID: "x", styleVersion: 1, path: .basic,
+                                language: .english, isScreenshot: false)
+        let rows = WhyThisName.rows(for: proposal)
+        #expect(rows.map(\.label) == ["Subject", "Naming", "Low confidence"])
+    }
+}
+
+@Suite("Field editing (M2)")
+struct FieldEditingTests {
+    @Test("Dates round-trip through the inspector field; invalid text is refused")
+    func dates() {
+        let date = DateValue(year: 2026, month: 11, day: 27, hour: 9, minute: 5)
+        #expect(FieldEditing.dateText(date) == "2026-11-27 09:05")
+        #expect(FieldEditing.parseDate("2026-11-27 09:05") == .some(date))
+        #expect(FieldEditing.parseDate("2026-11-27") == .some(DateValue(year: 2026, month: 11, day: 27)))
+        #expect(FieldEditing.parseDate("") == .some(nil))
+        for bad in ["2026-02-30", "27.11.2026", "2026-11-27 25:00", "2026-11", "x", "2026-11-27 9:5", "2026-11-27 09:05 extra"] {
+            #expect(FieldEditing.parseDate(bad) == nil, "\(bad)")
+        }
+    }
+
+    @Test("Kind options include every built-in kind, custom kinds and Other")
+    func kinds() {
+        let options = FieldEditing.kindOptions(customKinds: [CustomKind(id: "c1", label: "Lab Result")])
+        #expect(options.count == BuiltInKind.allCases.count + 2)
+        #expect(options.last?.kind == .other)
+        #expect(options.contains { $0.kind == .custom(id: "c1") })
+        #expect(Set(options.map(\.id)).count == options.count)
+    }
+}
+
+@Suite("Style editing (3.15, H7)")
+struct StyleEditingTests {
+    @Test("Chips move, toggle and disappear as the token bar shows")
+    func tokenBar() {
+        var template = Presets.clean.template
+        StyleEditing.move(&template, from: 0, to: template.count)
+        #expect(template.map(\.kind) == [.source, .kind, .subject, .date])
+        StyleEditing.move(&template, from: 3, to: 0)
+        #expect(template.map(\.kind) == [.date, .source, .kind, .subject])
+        StyleEditing.move(&template, from: 9, to: 0)
+        #expect(template.count == 4)
+        StyleEditing.toggleRequired(&template, at: 1)
+        #expect(template[1].required)
+        #expect(StyleEditing.chipTitle(template[1]) == "Source (required)")
+        StyleEditing.remove(&template, at: 1)
+        #expect(!template.contains { $0.kind == .source })
+        #expect(StyleEditing.addable(to: template, screenshot: false) == [.source, .original, .text])
+        #expect(StyleEditing.addable(to: Presets.clean.screenshotTemplate, screenshot: true).contains(.kind))
+    }
+
+    @Test("Every option has a label, and invalid drafts report why")
+    func labels() {
+        #expect(Set(PartSeparator.allCases.map(StyleEditing.label)).count == PartSeparator.allCases.count)
+        #expect(Set(WordSeparator.allCases.map(StyleEditing.label)).count == WordSeparator.allCases.count)
+        #expect(Set(CaseMode.allCases.map(StyleEditing.label)).count == CaseMode.allCases.count)
+        #expect(Set(TimeFormat.allCases.map(StyleEditing.label)).count == TimeFormat.allCases.count)
+        #expect(Set(DateSource.allCases.map(StyleEditing.label)).count == DateSource.allCases.count)
+        var draft = Presets.clean
+        draft.template = []
+        #expect(!StyleValidator.issues(draft).isEmpty)
+        #expect(StyleEditing.list(" iPhone, PDF ,, macOS") == ["iPhone", "PDF", "macOS"])
+    }
+}
+
+@Suite("Rule editing (3.12)")
+struct RuleEditingTests {
+    @Test("Conditions round-trip through the editor and rules reorder like a list")
+    func editing() {
+        for kind in RuleEditing.ConditionKind.allCases {
+            let condition = kind.placeholder
+            #expect(RuleEditing.kind(of: condition) == kind)
+            if RuleEditing.text(of: condition) != nil {
+                #expect(RuleEditing.text(of: RuleEditing.with(text: "x", condition)) == "x")
+            }
+        }
+        let rule = Rule(id: "r", name: "Invoices", conditions: [.kindIs(.builtIn(.invoice)), .sourceContains("Swisscom")], destinationID: "d")
+        #expect(RuleEditing.summary(rule, destination: "Invoices") == "When kind is Invoice and source contains “Swisscom” → Invoices")
+        var rules = ["a", "b", "c", "d"].map { Rule(id: $0, name: $0, conditions: [], destinationID: "d") }
+        RuleEditing.move(&rules, from: IndexSet(integer: 0), to: 3)
+        #expect(rules.map(\.id) == ["b", "c", "a", "d"])
+        RuleEditing.move(&rules, from: IndexSet([2, 3]), to: 0)
+        #expect(rules.map(\.id) == ["a", "d", "b", "c"])
+    }
+}
+
+@Suite("About (A5)")
+struct LicenseTests {
+    @Test("GRDB's MIT license appears in About")
+    func grdb() {
+        #expect(Licenses.aboutCredits.contains("GRDB"))
+        #expect(Licenses.grdb.contains("Gwendal Roué"))
+        #expect(Licenses.grdb.contains("Permission is hereby granted, free of charge"))
+    }
+}

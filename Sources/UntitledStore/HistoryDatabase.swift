@@ -163,6 +163,28 @@ public final class HistoryDatabase: JournalStore, Sendable {
                     arguments: [limit])
     }
 
+    /// Where renamed files are now, newest first, for files not restored since.
+    public func renamedPaths(limit: Int) throws -> [String] {
+        try pool.read { db in
+            try String.fetchAll(db, sql: """
+                SELECT newPath FROM operation WHERE state = 'done' AND method NOT IN ('undo', 'finderRestore')
+                ORDER BY id DESC LIMIT ?
+                """, arguments: [limit])
+        }
+    }
+
+    /// Files renamed from the top level of a folder since a date: the weekly count in Folders (3.15).
+    public func renamedCount(inFolder folder: String, since date: Date) throws -> Int {
+        let prefix = (folder.hasSuffix("/") ? folder : folder + "/")
+            .replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_")
+        return try pool.read { db in
+            try Int.fetchOne(db, sql: """
+                SELECT COUNT(*) FROM operation WHERE state IN ('done', 'reverted') AND method NOT IN ('undo', 'finderRestore')
+                  AND time >= ? AND oldPath LIKE ? ESCAPE '\\' AND oldPath NOT LIKE ? ESCAPE '\\'
+                """, arguments: [date, prefix + "%", prefix + "%/%"]) ?? 0
+        }
+    }
+
     /// Activity search by old or new name (3.15). Case-insensitive.
     public func search(_ text: String, limit: Int = 500) throws -> [JournalEntry] {
         let trimmed = text.trimmingCharacters(in: .whitespaces)

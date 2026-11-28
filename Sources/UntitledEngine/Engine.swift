@@ -86,6 +86,8 @@ public actor Engine {
     var ruleWarnings: Set<String> = []
     var recentFacts: [RecentFacts] = []
     var lastOperationID: Int64?
+    /// Folders whose security-scoped access is open, by folder ID (App Sandbox).
+    var accessing: [String: URL] = [:]
     /// True while the worker is naming a file; the menu bar glyph animates only then (3.16).
     var working = false
 
@@ -207,6 +209,7 @@ public actor Engine {
 
     func startWatching(_ folder: GrantedFolder) {
         guard watchTasks[folder.id] == nil else { return }
+        guard openAccess(folder) else { return }
         guard FileSystem.status(atPath: folder.path)?.isDirectory == true else {
             markAttention(folder.id, missing: true)
             return
@@ -251,6 +254,37 @@ public actor Engine {
             try? deps.config.save(folders[folder.id]!)
             emit(.foldersChanged)
         }
+    }
+
+    /// Opens security-scoped access through the folder's bookmark (C1). A bookmark that now points
+    /// somewhere else means the folder was moved or renamed: it needs Reconnect (C2). A stale
+    /// bookmark is refreshed once; nothing prompts and nothing retries in a loop (X5).
+    @discardableResult
+    func openAccess(_ folder: GrantedFolder) -> Bool {
+        guard let bookmark = folder.bookmark else { return true }
+        if accessing[folder.id] != nil { return true }
+        guard let resolved = try? deps.bookmarks.resolve(bookmark) else {
+            markAttention(folder.id, missing: true)
+            return false
+        }
+        _ = deps.bookmarks.startAccessing(resolved.url)
+        accessing[folder.id] = resolved.url
+        if URL(fileURLWithPath: resolved.url.path).standardizedFileURL.path != URL(fileURLWithPath: folder.path).standardizedFileURL.path {
+            closeAccess(folder.id)
+            markAttention(folder.id, missing: true)
+            return false
+        }
+        if resolved.isStale, let fresh = try? deps.bookmarks.folderBookmark(for: resolved.url), var current = folders[folder.id] {
+            current.bookmark = fresh
+            folders[folder.id] = current
+            try? deps.config.save(current)
+        }
+        return true
+    }
+
+    func closeAccess(_ folderID: String) {
+        guard let url = accessing.removeValue(forKey: folderID) else { return }
+        deps.bookmarks.stopAccessing(url)
     }
 
     func stopWatching(_ folderID: String) {

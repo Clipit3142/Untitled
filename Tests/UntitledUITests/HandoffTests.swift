@@ -72,3 +72,19 @@ struct HandoffTests {
         #expect(!SharedHandoff.canRestore(path: file))
     }
 }
+
+@Suite("Finder handoff lists (P4)")
+struct HandoffListTests {
+    @Test("Restore falls back to the app's list when the marker can't be read")
+    func renamedList() throws {
+        let container = FileManager.default.temporaryDirectory.appendingPathComponent("untitled-group-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: container, withIntermediateDirectories: true)
+        let path = container.appendingPathComponent("Invoice.pdf").path
+        #expect(!SharedHandoff.canRestore(path: path, container: container))
+        SharedHandoff.publishRenamedPaths([path], container: container)
+        #expect(SharedHandoff.canRestore(path: path, container: container))
+        SharedHandoff.publishGrantedFolders([container.path], container: container)
+        #expect(SharedHandoff.isGranted(path: path, container: container))
+        #expect(!SharedHandoff.isGranted(path: "/etc/hosts", container: container))
+    }
+}

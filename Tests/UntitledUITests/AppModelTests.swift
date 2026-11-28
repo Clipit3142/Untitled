@@ -239,3 +239,103 @@ struct AppModelTests {
         await harness.finish()
     }
 }
+
+@Suite("Folder counts", .serialized)
+@MainActor
+struct FolderCountTests {
+    @Test("The weekly count covers top-level renames in the last 7 days")
+    func weekly() async throws {
+        let harness = try await ModelHarness()
+        await harness.model.updateOnboarding { $0.skip() }
+        harness.scan()
+        harness.scan("scan0002.pdf")
+        #expect(await eventually { harness.model.recent.count == 2 })
+        #expect(await harness.model.weeklyCount(folderID: "desktop") == 2)
+        #expect(await harness.model.weeklyCount(folderID: "missing") == 0)
+        await harness.finish()
+    }
+}
+
+@Suite("Onboarding model (B3, B4, B6, B7)", .serialized)
+@MainActor
+struct OnboardingModelTests {
+    @Test("Desktop opens on Desktop; another pick is added and the UI says so; Downloads needs no picker")
+    func folders() async throws {
+        let harness = try await ModelHarness()
+        await harness.model.removeFolder(id: "desktop")
+        let downloads = FileSystem.join(harness.root, "Downloads")
+        let other = FileSystem.join(harness.root, "Other")
+        try FileManager.default.createDirectory(atPath: downloads, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(atPath: other, withIntermediateDirectories: true)
+        let router = AppRouter()
+        var pickerStart: URL?
+        var pickerCalls = 0
+        router.desktopFolder = { URL(fileURLWithPath: harness.desktop) }
+        router.downloadsFolder = { URL(fileURLWithPath: downloads) }
+        router.chooseFolder = { start, _ in
+            pickerCalls += 1
+            pickerStart = start
+            return FolderChoice(url: URL(fileURLWithPath: pickerCalls == 1 ? harness.desktop : other), bookmark: nil)
+        }
+        let onboarding = OnboardingModel(app: harness.model, router: router)
+        await onboarding.addDesktop()
+        #expect(pickerStart?.path == harness.desktop)
+        #expect(onboarding.desktopAdded)
+        await onboarding.addDownloads()
+        #expect(pickerCalls == 1)
+        #expect(onboarding.downloadsAdded)
+        await onboarding.addDesktop()
+        #expect(harness.model.notices.last?.text.contains("instead of Desktop") == true)
+        #expect(harness.model.watchedFolders.count == 3)
+        await harness.finish()
+    }
+
+    @Test("Style and mode apply to every watched folder when the mode step completes")
+    func styleAndMode() async throws {
+        let harness = try await ModelHarness(mode: .review)
+        let onboarding = OnboardingModel(app: harness.model, router: AppRouter())
+        await harness.model.updateOnboarding { $0.step = .mode }
+        onboarding.styleID = Presets.kebab.id
+        onboarding.mode = .automatic
+        await onboarding.next()
+        #expect(onboarding.step == .permissions)
+        #expect(harness.model.folder(id: "desktop")?.mode == .automatic)
+        #expect(harness.model.folder(id: "desktop")?.styleID == Presets.kebab.id)
+        await harness.finish()
+    }
+
+    @Test("The demo watches for a rename and shows the tip after 10 s without one")
+    func demo() async throws {
+        let harness = try await ModelHarness()
+        let onboarding = OnboardingModel(app: harness.model, router: AppRouter())
+        await harness.model.updateOnboarding { $0.step = .permissions }
+        await onboarding.next()
+        #expect(onboarding.step == .demo)
+        let started = try #require(onboarding.demoStarted)
+        #expect(!onboarding.showsSavedElsewhereTip(now: started.addingTimeInterval(5)))
+        #expect(onboarding.showsSavedElsewhereTip(now: started.addingTimeInterval(10)))
+        harness.scan()
+        #expect(await eventually { onboarding.checkDemo(); return onboarding.demoRenamed != nil })
+        #expect(!onboarding.showsSavedElsewhereTip(now: started.addingTimeInterval(20)))
+        await onboarding.finish()
+        #expect(harness.model.onboarding.completion == .finished)
+        await harness.finish()
+    }
+}
+
+@Suite("Renamed paths", .serialized)
+@MainActor
+struct RenamedPathsTests {
+    @Test("Renamed paths list current names and drop undone files")
+    func renamedPaths() async throws {
+        let harness = try await ModelHarness()
+        await harness.model.updateOnboarding { $0.skip() }
+        harness.scan()
+        #expect(await eventually { harness.model.recent.count == 1 })
+        let entry = try #require(harness.model.recent.first)
+        #expect(await harness.model.renamedPaths() == [entry.newPath])
+        await harness.model.undo(entryID: try #require(entry.id))
+        #expect(await harness.model.renamedPaths().isEmpty)
+        await harness.finish()
+    }
+}

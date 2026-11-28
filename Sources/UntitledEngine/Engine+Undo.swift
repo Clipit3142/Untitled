@@ -133,6 +133,11 @@ extension Engine {
 
     // MARK: Activity
 
+    public func entry(id: Int64) -> JournalEntry? { try? deps.history.entry(id) }
+
+    /// Current paths of renamed files that were not restored, for the Finder extension.
+    public func renamedPaths(limit: Int = 5_000) -> [String] { (try? deps.history.renamedPaths(limit: limit)) ?? [] }
+
     public func activity(search: String = "", limit: Int = 500) -> [JournalEntry] {
         (try? deps.history.search(search, limit: limit)) ?? []
     }

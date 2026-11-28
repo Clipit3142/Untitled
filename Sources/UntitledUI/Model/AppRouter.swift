@@ -54,8 +54,14 @@ public final class AppRouter {
     @ObservationIgnored public var chooseFolder: (_ startingAt: URL?, _ prompt: String) async -> FolderChoice? = { _, _ in nil }
     @ObservationIgnored public var copyToPasteboard: (String) -> Void = { _ in }
     @ObservationIgnored public var openURL: (URL) -> Void = { _ in }
-    @ObservationIgnored public var quickLook: (String) -> Void = { _ in }
     @ObservationIgnored public var exportDiagnostics: (String) -> Void = { _ in }
+    /// Asks for notification permission; called only from onboarding step 6 (P1).
+    @ObservationIgnored public var requestNotificationPermission: () async -> Bool = { false }
+    @ObservationIgnored public var finderExtensionEnabled: () -> Bool = { false }
+    @ObservationIgnored public var openFinderExtensionSettings: () -> Void = {}
+    /// The Downloads folder, granted by entitlement (B4).
+    @ObservationIgnored public var downloadsFolder: () -> URL? = { nil }
+    @ObservationIgnored public var desktopFolder: () -> URL? = { nil }
 
     public init() {}
 

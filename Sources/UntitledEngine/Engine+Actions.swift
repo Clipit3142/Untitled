@@ -199,6 +199,7 @@ extension Engine {
 
     public func updateFolder(_ folder: GrantedFolder) throws {
         let previous = folders[folder.id]
+        if previous?.bookmark != folder.bookmark || previous?.path != folder.path { closeAccess(folder.id) }
         folders[folder.id] = folder
         try deps.config.save(folder)
         if folder.role == .watched, folder.mode != .off {
@@ -213,6 +214,7 @@ extension Engine {
 
     public func removeFolder(id: String) throws {
         stopWatching(id)
+        closeAccess(id)
         folders.removeValue(forKey: id)
         try deps.config.deleteFolder(id: id)
         emit(.foldersChanged)

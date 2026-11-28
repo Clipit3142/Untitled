@@ -429,6 +429,44 @@ struct EngineTests {
         await h.stop()
     }
 
+    /// C1, C2 and X5: folders open their bookmark at launch; a bookmark that resolves elsewhere or
+    /// not at all needs Reconnect once, with no retry loop; Reconnect resumes watching.
+    @Test func bookmarksAndReconnect() async throws {
+        let h = try await EngineHarness(mode: .automatic) { config in
+            var folder = try #require(try config.folders().first)
+            folder.bookmark = Data(folder.path.utf8)
+            try config.save(folder)
+        }
+        #expect(await h.engine.allFolders().first?.attention == nil)
+        h.file("scan0001.pdf", EngineHarness.invoice)
+        #expect(await eventually { await h.engine.activity().count == 1 })
+
+        // The folder is renamed while Untitled is quit: its bookmark no longer resolves.
+        await h.stop()
+        let moved = h.desktop + "-moved"
+        rename(h.desktop, moved)
+        try await h.launch()
+        #expect(await h.engine.allFolders().first?.attention == .needsReconnect)
+        let changes = OfferCounter()
+        let events = await h.engine.events()
+        let listener = Task { for await event in events where event == .foldersChanged { changes.increment() } }
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(changes.value == 0, "no retry loop while the folder needs Reconnect")
+        listener.cancel()
+
+        // Reconnect to the new location.
+        var folder = try #require(await h.engine.allFolders().first)
+        folder.path = moved
+        folder.bookmark = Data(moved.utf8)
+        folder.attention = nil
+        try await h.engine.updateFolder(folder)
+        #expect(await h.engine.allFolders().first?.attention == nil)
+        h.file("scan0002.pdf", EngineHarness.invoice(month: "December"), in: moved)
+        #expect(await eventually { await h.engine.activity().count == 2 })
+        rename(moved, h.desktop)
+        await h.stop()
+    }
+
     /// E4 and W2: extracted text never reaches disk, and diagnostics contain no planted tokens.
     @Test func extractedTextNeverStoredAndDiagnosticsAreClean() async throws {
         let h = try await EngineHarness(mode: .review)

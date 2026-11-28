@@ -71,6 +71,12 @@ extension Engine {
         try? deps.config.setSetting(value, key: "app." + key)
     }
 
+    /// Files renamed from a folder in the last 7 days (Folders, 3.15).
+    public func weeklyCount(folderID: String) -> Int {
+        guard let folder = folders[folderID] else { return 0 }
+        return (try? deps.history.renamedCount(inFolder: folder.path, since: deps.now().addingTimeInterval(-7 * 86_400))) ?? 0
+    }
+
     // MARK: Learning a style (3.10, B5)
 
     /// Reads the names in a folder once (no lasting access) and infers a style from them.
