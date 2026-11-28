@@ -60,6 +60,6 @@ private extension View {
 }
 
 extension EdgeInsets {
-    static let row = EdgeInsets(top: Spacing.xs, leading: Spacing.s, bottom: Spacing.xs, trailing: Spacing.s)
+    static var row: EdgeInsets { EdgeInsets(top: Spacing.xs, leading: Spacing.s, bottom: Spacing.xs, trailing: Spacing.s) }
 }
 #endif

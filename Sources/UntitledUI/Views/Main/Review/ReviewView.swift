@@ -149,7 +149,9 @@ final class ProgressRelay: Sendable {
     private let continuation: AsyncStream<Int>.Continuation
 
     init() {
-        (stream, continuation) = AsyncStream.makeStream(of: Int.self, bufferingPolicy: .bufferingNewest(1))
+        let (stream, continuation) = AsyncStream.makeStream(of: Int.self, bufferingPolicy: .bufferingNewest(1))
+        self.stream = stream
+        self.continuation = continuation
     }
 
     func report(_ value: Int) { continuation.yield(value) }

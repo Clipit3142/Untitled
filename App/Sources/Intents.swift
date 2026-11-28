@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import UniformTypeIdentifiers
 import UntitledCore
 import UntitledEngine
 import UntitledStore

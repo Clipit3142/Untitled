@@ -67,7 +67,7 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     }
 
     /// Draws the glyph as a vector template image, crisp at any scale (R5).
-    static func image(for state: GlyphState, frame: Int) -> NSImage {
+    nonisolated static func image(for state: GlyphState, frame: Int) -> NSImage {
         let size = NSSize(width: GlyphPath.size, height: GlyphPath.size)
         let image = NSImage(size: size, flipped: true) { _ in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
@@ -101,7 +101,7 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         return image
     }
 
-    private static func path(_ shape: GlyphPath.Shape) -> CGPath {
+    private nonisolated static func path(_ shape: GlyphPath.Shape) -> CGPath {
         let path = CGMutablePath()
         for element in shape.elements {
             switch element {
@@ -114,29 +114,29 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         return path
     }
 
-    private static func stroke(_ shape: GlyphPath.Shape, in context: CGContext, extra: Double = 0) {
+    private nonisolated static func stroke(_ shape: GlyphPath.Shape, in context: CGContext, extra: Double = 0) {
         context.addPath(path(shape))
         context.setLineWidth(shape.lineWidth + extra)
         context.strokePath()
     }
 
-    private static func fill(_ shape: GlyphPath.Shape, in context: CGContext) {
+    private nonisolated static func fill(_ shape: GlyphPath.Shape, in context: CGContext) {
         context.addPath(path(shape))
         context.fillPath()
     }
 
     // MARK: Drops (3.15: dropping files on the status item opens Quick Rename)
 
-    func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    @objc func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
         statusItem.button?.highlight(true)
         return .copy
     }
 
-    func draggingExited(_ sender: (any NSDraggingInfo)?) {
+    @objc func draggingExited(_ sender: (any NSDraggingInfo)?) {
         statusItem.button?.highlight(false)
     }
 
-    func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    @objc func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         statusItem.button?.highlight(false)
         let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
         guard !urls.isEmpty else { return false }
