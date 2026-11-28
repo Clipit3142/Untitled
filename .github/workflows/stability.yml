@@ -1,0 +1,30 @@
+name: Stability
+
+# A6: every test passes 100 consecutive runs. A flaky test counts as a failing test (Part 4 rules).
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Consecutive runs
+        default: "100"
+
+jobs:
+  repeat:
+    runs-on: macos-latest
+    timeout-minutes: 720
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 27
+        run: sudo xcode-select -s /Applications/Xcode_27.app
+      - name: Build tests once
+        run: swift build --package-path UntitledKit --build-tests
+      - name: Run the suite repeatedly; stop at the first failure
+        run: |
+          runs="${{ github.event.inputs.runs || '100' }}"
+          for i in $(seq 1 "$runs"); do
+            echo "::group::Run $i of $runs"
+            swift test --package-path UntitledKit --skip-build || { echo "::error::failed on run $i"; exit 1; }
+            echo "::endgroup::"
+          done
