@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// An entry at the top level of a watched folder.
 public struct FolderEntry: Sendable, Hashable, Codable {
@@ -54,15 +54,23 @@ public struct FolderSnapshot: Sendable, Hashable, Codable {
     }
 }
 
-/// Waits until a file stops changing (3.4 stability wait, D1): size and modification date
-/// equal on two checks at least `interval` apart, after an initial `wait`.
+/// Waits until a file stops changing (3.4 stability wait, D1).
+///
+/// Size and modification date must be equal on two checks at least `interval` apart, after an
+/// initial `wait`. The file must also have been quiet (now minus its modification date) for
+/// at least the wait and for twice the longest gap seen between its writes, capped at 10 s, so
+/// a slow writer that pauses between chunks is not mistaken for a finished file
+/// (SPEC Part 5 #48). One-shot writes such as screenshots see no gaps and settle after the wait.
 public struct StabilityGate: Sendable {
     public var wait: Duration
     public var interval: Duration
+    public var maximumQuietRequirement: TimeInterval
 
-    public init(wait: Duration = .milliseconds(1_000), interval: Duration = .milliseconds(500)) {
+    public init(wait: Duration = .milliseconds(1_000), interval: Duration = .milliseconds(500),
+                maximumQuietRequirement: TimeInterval = 10) {
         self.wait = wait
         self.interval = interval
+        self.maximumQuietRequirement = maximumQuietRequirement
     }
 
     public enum Failure: Error, Sendable, Hashable {
@@ -75,12 +83,19 @@ public struct StabilityGate: Sendable {
         try await Task.sleep(for: wait)
         guard var previous = FileSystem.status(atPath: path) else { throw Failure.vanished }
         guard previous.identity == identity else { throw Failure.replaced }
+        let waitSeconds = Double(wait.components.seconds) + Double(wait.components.attoseconds) / 1e18
+        // A file written after it was created (mtime later than birth) shows its first gap.
+        var longestGap = identity.birth > 0 ? max(0, previous.modification - Double(identity.birth) / 1e9) : 0
         while true {
             try await Task.sleep(for: interval)
             guard let current = FileSystem.status(atPath: path) else { throw Failure.vanished }
             guard current.identity == identity else { throw Failure.replaced }
             if current.size == previous.size, current.modification == previous.modification {
-                return current
+                let required = max(waitSeconds, min(2 * longestGap, maximumQuietRequirement))
+                let quiet = Date().timeIntervalSince1970 - current.modification
+                if quiet >= required { return current }
+            } else if current.modification > previous.modification {
+                longestGap = max(longestGap, current.modification - previous.modification)
             }
             previous = current
         }

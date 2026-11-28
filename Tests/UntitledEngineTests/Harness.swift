@@ -92,7 +92,11 @@ final class EngineHarness: @unchecked Sendable {
     var config: ConfigDatabase!
     var history: HistoryDatabase!
 
-    init(mode: FolderMode = .automatic, watchStart: Date = Date(timeIntervalSinceNow: -3_600), configure: (ConfigDatabase) throws -> Void = { _ in }) async throws {
+    let productionTiming: Bool
+
+    init(mode: FolderMode = .automatic, watchStart: Date = Date(timeIntervalSinceNow: -3_600), productionTiming: Bool = false,
+         configure: (ConfigDatabase) throws -> Void = { _ in }) async throws {
+        self.productionTiming = productionTiming
         root = FileManager.default.temporaryDirectory.appendingPathComponent("untitled-engine-\(UUID().uuidString)").path
         desktop = FileSystem.join(root, "Desktop")
         dataDirectory = FileSystem.join(root, "Library")
@@ -100,7 +104,7 @@ final class EngineHarness: @unchecked Sendable {
         try FileManager.default.createDirectory(atPath: dataDirectory, withIntermediateDirectories: true)
         let config = try ConfigDatabase(url: URL(fileURLWithPath: FileSystem.join(dataDirectory, "config.sqlite")))
         var settings = EngineSettings()
-        settings.stabilityWait = 0.1
+        settings.stabilityWait = productionTiming ? Defaults.stabilityWait : 0.1
         try config.setSetting(settings, key: "engineSettings")
         try config.save(GrantedFolder(id: "desktop", path: desktop, role: .watched, mode: mode, watchStart: watchStart))
         try configure(config)
@@ -124,7 +128,7 @@ final class EngineHarness: @unchecked Sendable {
             generator: model, notifier: notifier, power: power, bookmarks: PathBookmarks(),
             watcherFactory: { folder in PollingFolderWatcher(path: folder.path, interval: .milliseconds(40)) },
             availability: { availability.state.withLock { $0 } }, timeZone: TimeZone(identifier: "UTC")!,
-            stabilityInterval: .milliseconds(60), maintenanceInterval: .milliseconds(100),
+            stabilityInterval: productionTiming ? .milliseconds(500) : .milliseconds(60), maintenanceInterval: .milliseconds(100),
             generationSleeper: { _ in try await Task.sleep(for: .milliseconds(5)) }
         ))
         try await engine.start()

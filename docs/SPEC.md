@@ -211,7 +211,7 @@ Not in v1:
 
 | Setting | Default | Range |
 |---|---|---|
-| Stability wait | 1.0 s; size and modification date equal on two checks ≥ 0.5 s apart | 0.5–10 s |
+| Stability wait | 1.0 s; size and modification date equal on two checks ≥ 0.5 s apart, and the file quiet for at least twice the longest gap seen between its writes (at most 10 s) *(Part 5, #48)* | 0.5–10 s |
 | PDF pages read | 2 | 1–5 |
 | Content budget | ≤ 3,000 tokens | — |
 | OCR image size | ≤ 4,096 px on the long side | — |
@@ -983,5 +983,6 @@ These issues came from reading Parts 1–4 against each other. Every fix is appl
 | 43 | Kind Other would have appeared as the word "Other" in names | Other adds nothing to a name; it still counts as empty for confidence |
 | 44 | The month-name format was undefined for padding and for Japanese, Chinese and Korean | Unpadded day; CJK dates in their native order |
 | 45 | "Browser duplicate suffixes" as a generic pattern would rename "Invoice (1)" and similar chosen names | The suffix counts only together with a generic word |
+| 48 | Two equal checks 0.5 s apart can both fall between the chunks of a slow writer, so D1's 2 GB file written over 60 s would be named mid-write | The file must also be quiet for twice the longest gap seen between its writes, capped at 10 s; one-shot writes keep the 1 s wait |
 | 47 | Browsers finish downloads, and apps save atomically, by renaming a temporary or hidden file to its real name; read as "renamed in place", those files were never processed, contradicting D2 | A rename from an in-progress or hidden name counts as an arrival; renaming any other existing file still never triggers processing (D9) |
 | 46 | The product name changed from Nomen to Untitled | Every user-facing name, the marker attribute (`com.yourcompany.Untitled.original`), the `untitled://` URL scheme, bundle identifiers and module names follow. Files named "Untitled" stay generic (3.6); that rule is about file names, not the app. Y2 still applies: "Untitled" must be cleared for trademark and App Store availability |
