@@ -7,7 +7,7 @@ can only be verified on a Mac, and what needs people or Apple.
 Everything here was done in a Linux container (x86_64, Swift 6.4.3). There was no Mac, no Xcode and no macOS SDK, so:
 
 - The platform-independent modules (Core, FS, Store, Model, Extract, Engine, and the UI module's presentation logic and
-  app models) were built with zero warnings and tested, @@TESTCOUNT@@.
+  app models) were built with zero warnings and tested, 224 tests in 7 suites, all passing in debug (with coverage) and in release.
 - The macOS-only code (SwiftUI views, the AppKit shell, the Foundation Models adapter, the Vision/PDFKit/Quick Look
   readers, FSEvents, security-scoped bookmarks, coordinated moves, App Intents, the Finder extension) was written and
   reviewed but **never compiled**. The first build on a Mac will probably surface compile errors to fix.
@@ -31,7 +31,7 @@ Tests are in `UntitledKit/Tests`; gates are in `scripts/`; CI runs both (`.githu
 | A3 | Pass (here) | `scripts/check_entitlements.py` diffs both entitlement files against the list it reads from spec 3.2. CI repeats it on the signed app. |
 | A4 | Needs people or Apple | No network entitlement; privacy manifest declares no collected data. App Review not attempted. |
 | A5 | Pass (here) for the code; About panel on Mac | GRDB 7.9.0 is the only dependency (`Package.resolved`). Its license is in `Licenses.aboutCredits` (tested) and the About panel. |
-| A6 | @@A6@@ | `scripts/coverage.py`: UntitledCore @@CORE@@, UntitledFS @@FS@@ (Linux; Darwin-only branches are compiled out here). The suite was run @@REPEATS@@ times here without a failure; `stability.yml` runs it 100 times in a row on macOS. |
+| A6 | Pass (here) for coverage; the 100 runs need a Mac | `scripts/coverage.py`: UntitledCore 95.3%, UntitledFS 93.4% (Linux; Darwin-only branches are compiled out here). Here the non-Core suites ran 5 times and the Core suite twice, all without a failure; `stability.yml` runs it 100 times in a row on macOS. |
 | A7 | Built, verify on Mac | `SystemServices.handOffToRunningCopy()`: a second copy signals the first and quits. |
 | A8 | Pass (here) | `scripts/check_release_hygiene.sh`: no markers, debug menus or environment-driven test hooks in shipping code; the engine's test helper lives in the test target. |
 
@@ -56,7 +56,7 @@ Tests are in `UntitledKit/Tests`; gates are in `scripts/`; CI runs both (`.githu
 | C2 | Pass (here) | Missing folder within 5 s; moved folder at launch; Reconnect resumes watching. |
 | C3 | Pass (here) | 100 nested fixtures, 0 processed. |
 | C4 | Pass (here) | Files added while quit, filtered by date added; also on a folder's first scan. |
-| C5 | @@C5@@ | |
+| C5 | Pass (here) for the logic; real volumes on Mac | `EngineTests.disconnectedVolumeResumes`: Disconnected within 5 s, no event loop, watching resumes within 10 s. |
 | C6 | Pass (here) for the policy; real volumes on Mac | Volume types are refused with an explanation (`WatchingTests`). |
 | C7 | Pass (here) | Project-like folders need confirmation. |
 
@@ -105,7 +105,7 @@ G1–G7: **Pass (here)**. Date and source tracing, 1,000 PII fixtures, never-inc
 
 ## H. Styles and formatter
 
-H1–H10: **Pass (here)**, including 1,000,000 random style/field combinations (@@H1@@). H7's on-screen explanations
+H1–H10: **Pass (here)**, including 1,000,000 random style/field combinations (passes in debug and in release). H7's on-screen explanations
 (Styles shows each `StyleIssue`) are built and need a Mac to see.
 
 ## I. Learning
