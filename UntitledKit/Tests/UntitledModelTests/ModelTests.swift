@@ -297,3 +297,41 @@ struct BasicNamerTests {
         #expect(ProposalValidator.sourceEvidence("Deutsche Bahn", evidence: evidence, app: nil) != nil)
     }
 }
+
+@Suite("Token estimate (F5)")
+struct TokenEstimatorTests {
+    @Test("The estimate errs high for English, accented Latin and CJK text")
+    func errsHigh() {
+        // Real tokenizers average about 4 ASCII characters per token.
+        let english = String(repeating: "Swisscom invoice for the mobile subscription in November. ", count: 40)
+        #expect(TokenEstimator.estimate(english) >= english.count / 3)
+        let french = String(repeating: "Facture détaillée de décembre, échéance prévue. ", count: 40)
+        #expect(TokenEstimator.estimate(french) >= french.count / 3)
+        // About 1 to 1.5 tokens per CJK character.
+        let japanese = String(repeating: "東京都の請求書です。", count: 100)
+        #expect(TokenEstimator.estimate(japanese) >= Int(Double(japanese.count) * 1.5))
+        #expect(TokenEstimator.estimate("") == 0)
+        #expect(TokenEstimator.estimate(instructions: "a", prompt: "b", hasImage: true) >= TokenEstimator.imageTokens)
+    }
+
+    @Test("Budgeted content stays within 3,000 estimated tokens")
+    func budgetWithEstimate() async throws {
+        struct EstimatingModel: FieldGenerator {
+            func generate(_ request: GenerationRequest) async throws -> GeneratedFields { throw ModelFailure.decodingFailure }
+            func tokenCount(instructions: String, prompt: String, image: PromptImage?) async throws -> Int {
+                TokenEstimator.estimate(instructions: instructions, prompt: prompt, hasImage: image != nil)
+            }
+            func contextSize() async throws -> Int { 4_096 }
+            func prewarm(instructions: String) async {}
+        }
+        let lines = (0..<400).map { ContentLine(text: "Line \($0) 東京 with some ordinary words and a few more words to fill it") }
+        let request = GenerationRequest(metadata: [], content: lines, image: nil, examples: [],
+                                        schema: SchemaSpec(customKinds: [], candidates: [], subjectMaxWords: 5),
+                                        instructions: "Name the file.", sampling: .greedy, priority: .background)
+        let fitted = try await Budgeter.fit(request, generator: EstimatingModel())
+        let content = fitted.content.map(\.text).joined(separator: "\n")
+        #expect(TokenEstimator.estimate(content) <= Defaults.contentTokenBudget)
+        #expect(TokenEstimator.estimate(instructions: fitted.instructions, prompt: fitted.promptText, hasImage: false) <= 4_096 - Defaults.contextReserveTokens)
+        #expect(!fitted.content.isEmpty)
+    }
+}
