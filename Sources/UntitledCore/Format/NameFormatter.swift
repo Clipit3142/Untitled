@@ -56,6 +56,17 @@ public struct FormattedName: Sendable, Hashable {
     public var subjectWordsRemovedByGuards: Int
     /// Tokens removed to fit the length limits, in removal order.
     public var droppedTokens: [TokenKind]
+
+    public init(base: String, fileName: String, parts: [RenderedPart], missingRequiredTokens: [TokenKind],
+                subjectWordsBefore: Int, subjectWordsRemovedByGuards: Int, droppedTokens: [TokenKind]) {
+        self.base = base
+        self.fileName = fileName
+        self.parts = parts
+        self.missingRequiredTokens = missingRequiredTokens
+        self.subjectWordsBefore = subjectWordsBefore
+        self.subjectWordsRemovedByGuards = subjectWordsRemovedByGuards
+        self.droppedTokens = droppedTokens
+    }
 }
 
 /// Builds names from fields with a style (3.10 "Formatter"). Pure: the same inputs always

@@ -96,6 +96,26 @@ public enum LowConfidenceReason: String, Codable, Sendable, Hashable, CaseIterab
     }
 }
 
+/// The parts of confidence that depend on the file's content (3.9). Kept with a proposal so a
+/// style change can re-score it without the extracted text, which is never stored.
+public struct ConfidenceSignals: Codable, Sendable, Hashable {
+    public var enoughContent: Bool
+    public var guardrailOrRefusal: Bool
+    public var metadataOnly: Bool
+
+    public init(enoughContent: Bool, guardrailOrRefusal: Bool, metadataOnly: Bool) {
+        self.enoughContent = enoughContent
+        self.guardrailOrRefusal = guardrailOrRefusal
+        self.metadataOnly = metadataOnly
+    }
+
+    public init(evidence: Evidence, guardrailOrRefusal: Bool) {
+        self.enoughContent = evidence.textCharacterCount >= 20 || (evidence.topLabelConfidence ?? 0) >= 0.7
+        self.guardrailOrRefusal = guardrailOrRefusal
+        self.metadataOnly = evidence.metadataOnly
+    }
+}
+
 /// A complete proposal: fields, the formatted name, destination, confidence and evidence (3.3).
 public struct Proposal: Codable, Sendable, Hashable {
     public var fields: NameFields
@@ -112,12 +132,17 @@ public struct Proposal: Codable, Sendable, Hashable {
     public var subfolder: [String]
     public var language: NameLanguage
     public var isScreenshot: Bool
+    public var signals: ConfidenceSignals
+    /// Shown when Basic naming was used after a model failure (3.8 "reason shown").
+    public var basicReason: String?
 
     public init(
         fields: NameFields, fileName: String, parts: [RenderedPart], evidence: [PartEvidence],
         confidence: Confidence, lowReasons: [LowConfidenceReason], styleID: String, styleVersion: Int,
         path: NamingPath, ruleID: String? = nil, destinationID: String? = nil, subfolder: [String] = [],
-        language: NameLanguage, isScreenshot: Bool
+        language: NameLanguage, isScreenshot: Bool,
+        signals: ConfidenceSignals = ConfidenceSignals(enoughContent: true, guardrailOrRefusal: false, metadataOnly: false),
+        basicReason: String? = nil
     ) {
         self.fields = fields
         self.fileName = fileName
@@ -133,5 +158,7 @@ public struct Proposal: Codable, Sendable, Hashable {
         self.subfolder = subfolder
         self.language = language
         self.isScreenshot = isScreenshot
+        self.signals = signals
+        self.basicReason = basicReason
     }
 }

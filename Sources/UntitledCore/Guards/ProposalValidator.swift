@@ -140,18 +140,26 @@ public enum ProposalValidator {
         guardrailOrRefusal: Bool,
         currentName: String
     ) -> (Confidence, [LowConfidenceReason]) {
+        confidence(formatted: formatted, signals: ConfidenceSignals(evidence: evidence, guardrailOrRefusal: guardrailOrRefusal),
+                   currentName: currentName)
+    }
+
+    /// Confidence from stored signals, for re-formatting queued proposals (H8).
+    public static func confidence(
+        formatted: FormattedName,
+        signals: ConfidenceSignals,
+        currentName: String
+    ) -> (Confidence, [LowConfidenceReason]) {
         var reasons: [LowConfidenceReason] = []
         if !formatted.missingRequiredTokens.isEmpty { reasons.append(.missingRequiredToken) }
-        let enoughText = evidence.textCharacterCount >= 20
-        let confidentLabel = (evidence.topLabelConfidence ?? 0) >= 0.7
-        if !enoughText, !confidentLabel { reasons.append(.littleContent) }
-        if guardrailOrRefusal { reasons.append(.guardrailOrRefusal) }
+        if !signals.enoughContent { reasons.append(.littleContent) }
+        if signals.guardrailOrRefusal { reasons.append(.guardrailOrRefusal) }
         if formatted.subjectWordsBefore > 0,
            Double(formatted.subjectWordsRemovedByGuards) / Double(formatted.subjectWordsBefore) >= 0.5 {
             reasons.append(.guardsRemovedMostOfSubject)
         }
         if formatted.fileName == currentName { reasons.append(.nameUnchanged) }
-        if evidence.metadataOnly { reasons.append(.metadataOnly) }
+        if signals.metadataOnly { reasons.append(.metadataOnly) }
         return (reasons.isEmpty ? .high : .low, reasons)
     }
 }

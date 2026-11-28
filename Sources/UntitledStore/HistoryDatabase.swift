@@ -12,6 +12,7 @@ public final class HistoryDatabase: JournalStore, Sendable {
         if let url {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             var configuration = Configuration()
+            configuration.busyMode = .timeout(10)
             configuration.prepareDatabase { db in
                 try db.execute(sql: "PRAGMA synchronous = NORMAL")
             }

@@ -239,7 +239,7 @@ Not in v1:
 
 1. **Watch.** One FSEvents stream per watched folder (file-level events, 0.3 s latency).
    - An in-memory snapshot of each folder's top level (file identifier → name) sorts events into *arrived*, *renamed in place* and *removed*.
-   - Only *arrived* starts processing.
+   - Only *arrived* starts processing. A file renamed from an in-progress or hidden name (a finished download, an atomic save) has arrived. *(Part 5, #47)*
    - The last event ID is saved. On launch, events replay from that ID, or a full scan runs if the ID is no longer valid. The scan only picks up files whose date added is on or after the folder's watch start.
 2. **Stability gate.**
 3. **Eligibility** (3.6). The first eligible arrival after a period of inactivity prewarms the model.
@@ -983,4 +983,5 @@ These issues came from reading Parts 1–4 against each other. Every fix is appl
 | 43 | Kind Other would have appeared as the word "Other" in names | Other adds nothing to a name; it still counts as empty for confidence |
 | 44 | The month-name format was undefined for padding and for Japanese, Chinese and Korean | Unpadded day; CJK dates in their native order |
 | 45 | "Browser duplicate suffixes" as a generic pattern would rename "Invoice (1)" and similar chosen names | The suffix counts only together with a generic word |
+| 47 | Browsers finish downloads, and apps save atomically, by renaming a temporary or hidden file to its real name; read as "renamed in place", those files were never processed, contradicting D2 | A rename from an in-progress or hidden name counts as an arrival; renaming any other existing file still never triggers processing (D9) |
 | 46 | The product name changed from Nomen to Untitled | Every user-facing name, the marker attribute (`com.yourcompany.Untitled.original`), the `untitled://` URL scheme, bundle identifiers and module names follow. Files named "Untitled" stay generic (3.6); that rule is about file names, not the app. Y2 still applies: "Untitled" must be cleared for trademark and App Store availability |

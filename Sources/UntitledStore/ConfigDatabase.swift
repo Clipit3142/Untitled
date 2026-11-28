@@ -12,7 +12,9 @@ public final class ConfigDatabase: Sendable {
     public init(url: URL?) throws {
         if let url {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            queue = try DatabaseQueue(path: url.path)
+            var configuration = Configuration()
+            configuration.busyMode = .timeout(10)
+            queue = try DatabaseQueue(path: url.path, configuration: configuration)
         } else {
             queue = try DatabaseQueue()
         }
@@ -67,6 +69,12 @@ public final class ConfigDatabase: Sendable {
                 t.column("json", .text).notNull()
             }
         }
+        migrator.registerMigration("v2") { db in
+            try db.create(table: "folderSnapshot") { t in
+                t.primaryKey("folderID", .text)
+                t.column("json", .text).notNull()
+            }
+        }
         return migrator
     }
 
@@ -109,7 +117,26 @@ public final class ConfigDatabase: Sendable {
     }
 
     public func deleteFolder(id: String) throws {
-        try queue.write { db in try db.execute(sql: "DELETE FROM folder WHERE id = ?", arguments: [id]) }
+        try queue.write { db in
+            try db.execute(sql: "DELETE FROM folder WHERE id = ?", arguments: [id])
+            try db.execute(sql: "DELETE FROM folderSnapshot WHERE folderID = ?", arguments: [id])
+        }
+    }
+
+    /// The last top-level snapshot of a watched folder, so renames made while the app was
+    /// quit are not mistaken for arrivals at launch (D9).
+    public func snapshot(folderID: String) throws -> FolderSnapshot? {
+        try queue.read { db in
+            try String.fetchOne(db, sql: "SELECT json FROM folderSnapshot WHERE folderID = ?", arguments: [folderID])
+                .map { try Self.decode(FolderSnapshot.self, $0) }
+        }
+    }
+
+    public func saveSnapshot(_ snapshot: FolderSnapshot, folderID: String) throws {
+        try queue.write { db in
+            try db.execute(sql: "INSERT OR REPLACE INTO folderSnapshot (folderID, json) VALUES (?, ?)",
+                           arguments: [folderID, try Self.json(snapshot)])
+        }
     }
 
     // MARK: Styles
@@ -272,7 +299,7 @@ public final class ConfigDatabase: Sendable {
     /// Reset: removes every folder, style, rule, kind, example, learned item, ignored file and setting.
     public func resetAll() throws {
         try queue.write { db in
-            for table in ["folder", "style", "rule", "destination", "customKind", "example", "learningEvent", "ignoreItem", "setting"] {
+            for table in ["folder", "style", "rule", "destination", "customKind", "example", "learningEvent", "ignoreItem", "setting", "folderSnapshot"] {
                 try db.execute(sql: "DELETE FROM \(table)")
             }
         }

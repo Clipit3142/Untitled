@@ -1,7 +1,7 @@
 import Foundation
 
 /// An entry at the top level of a watched folder.
-public struct FolderEntry: Sendable, Hashable {
+public struct FolderEntry: Sendable, Hashable, Codable {
     public var identity: FileIdentity
     public var name: String
     /// Used to order arrivals (3.8 "in arrival order").
@@ -16,7 +16,7 @@ public enum FolderEvent: Sendable, Hashable {
 }
 
 /// The top level of a folder: file identity → name. Subfolders' contents are never listed (C3).
-public struct FolderSnapshot: Sendable, Hashable {
+public struct FolderSnapshot: Sendable, Hashable, Codable {
     public private(set) var entries: [FileIdentity: FolderEntry]
 
     public init(entries: [FileIdentity: FolderEntry] = [:]) {
